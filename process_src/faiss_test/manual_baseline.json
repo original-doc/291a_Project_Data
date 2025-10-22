@@ -1,0 +1,707 @@
+{
+  "1": {
+    "query": "How to fix CUDA out of memory error in PyTorch Lightning?",
+    "query_type": "debugging",
+    "relevant_docs": [
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 539,
+        "heuristic_score": 11
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Provides capabilities to run training using the DeepSpeed library, with training optimizations for large",
+        "path": "src\\lightning\\fabric\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 221,
+        "heuristic_score": 10
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"This profiler uses PyTorch's Autograd Profiler and lets you inspect the cost of",
+        "path": "src\\lightning\\pytorch\\profilers\\pytorch.py",
+        "class_name": "PyTorchProfiler",
+        "doc_index": 708,
+        "heuristic_score": 10
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Provides capabilities to run training using the DeepSpeed library, with training optimizations for large",
+        "path": "src\\lightning\\pytorch\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 719,
+        "heuristic_score": 10
+      },
+      {
+        "func_name": "to_tensorrt",
+        "docstring_summary": "Export the model to ScriptModule or GraphModule using TensorRT compile backend.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 538,
+        "heuristic_score": 9
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "2": {
+    "query": "Why is my validation loss not decreasing?",
+    "query_type": "debugging",
+    "relevant_docs": [
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 519,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "on_validation_end",
+        "docstring_summary": "Save a checkpoint at the end of the validation stage.",
+        "path": "src\\lightning\\pytorch\\callbacks\\model_checkpoint.py",
+        "class_name": "ModelCheckpoint",
+        "doc_index": 414,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "on_validation_epoch_start",
+        "docstring_summary": "Called when a validation epoch begins.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "class_name": "WeightAveraging",
+        "doc_index": 440,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "on_validation_epoch_end",
+        "docstring_summary": "Called when a validation epoch ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "class_name": "WeightAveraging",
+        "doc_index": 441,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "init_validation_tqdm",
+        "docstring_summary": "Override this to customize the tqdm bar for validation.",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\tqdm_progress.py",
+        "class_name": "TQDMProgressBar",
+        "doc_index": 462,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "3": {
+    "query": "RuntimeError with checkpoint loading",
+    "query_type": "debugging",
+    "relevant_docs": [
+      {
+        "func_name": "load_checkpoint",
+        "docstring_summary": "Load the contents from a checkpoint and restore the state of the given objects.",
+        "path": "src\\lightning\\fabric\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 226,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "load_checkpoint",
+        "docstring_summary": "Loads checkpoint using :func:`torch.load`, with additional handling for ``fsspec`` remote loading of files.",
+        "path": "src\\lightning\\fabric\\plugins\\io\\torch_io.py",
+        "class_name": "TorchCheckpointIO",
+        "doc_index": 202,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "save_checkpoint",
+        "docstring_summary": "Save model, optimizer, and other state to a checkpoint on disk.",
+        "path": "src\\lightning\\fabric\\strategies\\model_parallel.py",
+        "class_name": "ModelParallelStrategy",
+        "doc_index": 235,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "load_checkpoint",
+        "docstring_summary": "Load the contents from a checkpoint and restore the state of the given objects.",
+        "path": "src\\lightning\\fabric\\strategies\\model_parallel.py",
+        "class_name": "ModelParallelStrategy",
+        "doc_index": 236,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "on_load_checkpoint",
+        "docstring_summary": "r\"\"\"Called when loading a model checkpoint.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "class_name": "WeightAveraging",
+        "doc_index": 445,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "4": {
+    "query": "What parameters does the Lightning Trainer accept?",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "add_lightning_class_args",
+        "docstring_summary": "Adds arguments from a lightning class to a nested key of the parser.",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "class_name": "LightningArgumentParser",
+        "doc_index": 349,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Receives as input pytorch-lightning classes (or callables which return pytorch-lightning classes), which are",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "class_name": "LightningCLI",
+        "doc_index": 353,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 539,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "save_hyperparameters",
+        "docstring_summary": "Save arguments to ``hparams`` attribute.",
+        "path": "src\\lightning\\pytorch\\core\\mixins\\hparams_mixin.py",
+        "class_name": "HyperparametersMixin",
+        "doc_index": 550,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"This profiler uses PyTorch's Autograd Profiler and lets you inspect the cost of",
+        "path": "src\\lightning\\pytorch\\profilers\\pytorch.py",
+        "class_name": "PyTorchProfiler",
+        "doc_index": 708,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "5": {
+    "query": "How to use early stopping callback?",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "_run_early_stopping_check",
+        "docstring_summary": "Checks whether the early stopping condition is met and if so tells the trainer to stop the training.",
+        "path": "src\\lightning\\pytorch\\callbacks\\early_stopping.py",
+        "class_name": "EarlyStopping",
+        "doc_index": 397,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "transfer_batch_to_device",
+        "docstring_summary": "Override this hook if your :class:`~torch.utils.data.DataLoader` returns tensors wrapped in a custom data",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "class_name": "DataHooks",
+        "doc_index": 500,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "_torchrun_launch",
+        "docstring_summary": "This will invoke `torchrun` programmatically to launch the given script in new processes.",
+        "path": "src\\lightning\\fabric\\cli.py",
+        "class_name": "",
+        "doc_index": 92,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "autocast",
+        "docstring_summary": "A context manager to automatically convert operations for the chosen precision.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 106,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "call_register_accelerators",
+        "docstring_summary": "Legacy.",
+        "path": "src\\lightning\\fabric\\accelerators\\registry.py",
+        "class_name": "",
+        "doc_index": 150,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "6": {
+    "query": "Configure learning rate scheduler in Lightning",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "train_loop",
+        "docstring_summary": "The training loop running a single training epoch.",
+        "path": "examples\\fabric\\build_your_own_trainer\\trainer.py",
+        "class_name": "MyCustomTrainer",
+        "doc_index": 18,
+        "heuristic_score": 8
+      },
+      {
+        "func_name": "step_scheduler",
+        "docstring_summary": "Steps the learning rate scheduler if necessary.",
+        "path": "examples\\fabric\\build_your_own_trainer\\trainer.py",
+        "class_name": "MyCustomTrainer",
+        "doc_index": 21,
+        "heuristic_score": 8
+      },
+      {
+        "func_name": "configure_optimizers",
+        "docstring_summary": "Override to customize the :meth:`~lightning.pytorch.core.LightningModule.configure_optimizers` method.",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "class_name": "LightningCLI",
+        "doc_index": 366,
+        "heuristic_score": 8
+      },
+      {
+        "func_name": "lr_schedulers",
+        "docstring_summary": "Returns the learning rate scheduler(s) that are being used during training. Useful for manual optimization.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 506,
+        "heuristic_score": 8
+      },
+      {
+        "func_name": "configure_optimizers",
+        "docstring_summary": "r\"\"\"Choose what optimizers and learning-rate schedulers to use in your optimization. Normally you'd need one.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 523,
+        "heuristic_score": 8
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "7": {
+    "query": "Set up model checkpointing",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "setup_module_and_optimizers",
+        "docstring_summary": "Set up a model and multiple optimizers together, along with an optional learning rate scheduler. Currently,",
+        "path": "src\\lightning\\fabric\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 222,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "setup_module",
+        "docstring_summary": "Wraps the model into a :class:`~torch.distributed.fsdp.fully_sharded_data_parallel.FullyShardedDataParallel`",
+        "path": "src\\lightning\\fabric\\strategies\\fsdp.py",
+        "class_name": "FSDPStrategy",
+        "doc_index": 231,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "_setup_model_and_optimizers",
+        "docstring_summary": "Setup a model and multiple optimizers together.",
+        "path": "src\\lightning\\pytorch\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 720,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "_setup_model",
+        "docstring_summary": "Wraps the model into a :class:`~torch.distributed.fsdp.fully_sharded_data_parallel.FullyShardedDataParallel`",
+        "path": "src\\lightning\\pytorch\\strategies\\fsdp.py",
+        "class_name": "FSDPStrategy",
+        "doc_index": 725,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "setup",
+        "docstring_summary": "r\"\"\"Set up a model and its optimizers for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 99,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "8": {
+    "query": "How to log metrics to tensorboard?",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "get_metrics",
+        "docstring_summary": "r\"\"\"Combines progress bar metrics collected from the trainer with standard metrics from get_standard_metrics.",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\progress_bar.py",
+        "class_name": "ProgressBar",
+        "doc_index": 454,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "get_standard_metrics",
+        "docstring_summary": "r\"\"\"Returns the standard metrics displayed in the progress bar. Currently, it only includes the version of the",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\progress_bar.py",
+        "class_name": "",
+        "doc_index": 455,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "log",
+        "docstring_summary": "Log a scalar to all loggers that were added to Fabric.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 123,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "log_dict",
+        "docstring_summary": "Log multiple scalars at once to all loggers that were added to Fabric.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 124,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "log_hyperparams",
+        "docstring_summary": "Record hyperparameters. TensorBoard logs with and without saved hyperparameters are incompatible, the",
+        "path": "src\\lightning\\fabric\\loggers\\tensorboard.py",
+        "class_name": "TensorBoardLogger",
+        "doc_index": 173,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "9": {
+    "query": "Implement custom callback in PyTorch Lightning",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Exemplary Trainer with Fabric. This is a very simple trainer focused on readability but with reduced",
+        "path": "examples\\fabric\\build_your_own_trainer\\trainer.py",
+        "class_name": "MyCustomTrainer",
+        "doc_index": 16,
+        "heuristic_score": 7
+      },
+      {
+        "func_name": "save_checkpoint",
+        "docstring_summary": "Save model/training states as a checkpoint file through state-dump and file-write.",
+        "path": "src\\lightning\\fabric\\plugins\\io\\xla.py",
+        "class_name": "XLACheckpointIO",
+        "doc_index": 204,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "_dataloader_init_kwargs_resolve_sampler",
+        "docstring_summary": "This function is used to handle the sampler, batch_sampler arguments associated within a DataLoader for its re-",
+        "path": "src\\lightning\\fabric\\utilities\\data.py",
+        "class_name": "",
+        "doc_index": 294,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "pl_worker_init_function",
+        "docstring_summary": "r\"\"\"The worker_init_fn that Lightning automatically adds to your dataloader if you previously set the seed with",
+        "path": "src\\lightning\\fabric\\utilities\\seed.py",
+        "class_name": "",
+        "doc_index": 337,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Receives as input pytorch-lightning classes (or callables which return pytorch-lightning classes), which are",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "class_name": "LightningCLI",
+        "doc_index": 353,
+        "heuristic_score": 6
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "10": {
+    "query": "Multi-GPU training setup",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "setup",
+        "docstring_summary": "r\"\"\"Set up a model and its optimizers for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 99,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_module",
+        "docstring_summary": "r\"\"\"Set up a model for accelerated training or inference.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 100,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_optimizers",
+        "docstring_summary": "r\"\"\"Set up one or more optimizers for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 101,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_dataloaders",
+        "docstring_summary": "r\"\"\"Set up one or multiple dataloaders for accelerated training. If you need different settings for each",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 102,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "_setup_dataloader",
+        "docstring_summary": "r\"\"\"Set up a single dataloader for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 103,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "11": {
+    "query": "Custom validation step implementation",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "on_validation_batch_end",
+        "docstring_summary": "Called when the validation batch ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\callback.py",
+        "class_name": "Callback",
+        "doc_index": 387,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "on_validation_end",
+        "docstring_summary": "Save a checkpoint at the end of the validation stage.",
+        "path": "src\\lightning\\pytorch\\callbacks\\model_checkpoint.py",
+        "class_name": "ModelCheckpoint",
+        "doc_index": 414,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "init_validation_tqdm",
+        "docstring_summary": "Override this to customize the tqdm bar for validation.",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\tqdm_progress.py",
+        "class_name": "TQDMProgressBar",
+        "doc_index": 462,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "on_validation_batch_end",
+        "docstring_summary": "Called in the validation loop after the batch.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "class_name": "ModelHooks",
+        "doc_index": 475,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 519,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "12": {
+    "query": "Gradient accumulation example",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "clip_gradients",
+        "docstring_summary": "Clip the gradients of the model to a given max value or max norm.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 105,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "configure_gradient_clipping",
+        "docstring_summary": "Perform gradient clipping for the optimizer parameters. Called before :meth:`optimizer_step`.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 530,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "no_backward_sync",
+        "docstring_summary": "r\"\"\"Skip gradient synchronization during backward to avoid redundant communication overhead.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "class_name": "Fabric",
+        "doc_index": 114,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Provides capabilities to run training using the DeepSpeed library, with training optimizations for large",
+        "path": "src\\lightning\\fabric\\strategies\\deepspeed.py",
+        "class_name": "DeepSpeedStrategy",
+        "doc_index": 221,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "clip_gradients_norm",
+        "docstring_summary": "Clip gradients by norm.",
+        "path": "src\\lightning\\fabric\\strategies\\fsdp.py",
+        "class_name": "FSDPStrategy",
+        "doc_index": 233,
+        "heuristic_score": 3
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "13": {
+    "query": "Difference between training_step and validation_step",
+    "query_type": "conceptual",
+    "relevant_docs": [
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 519,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "training_step",
+        "docstring_summary": "A single training step, running forward and backward. The optimizer step is called separately, as this is",
+        "path": "examples\\fabric\\build_your_own_trainer\\trainer.py",
+        "class_name": "MyCustomTrainer",
+        "doc_index": 20,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "training_step",
+        "docstring_summary": "Carries out a single update to actor and critic network from a batch of replay buffer.",
+        "path": "examples\\pytorch\\domain_templates\\reinforce_learn_ppo.py",
+        "class_name": "PPOLightning",
+        "doc_index": 55,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "training_step",
+        "docstring_summary": "Carries out a single step through the environment to update the replay buffer. Then calculates loss based on",
+        "path": "examples\\pytorch\\domain_templates\\reinforce_learn_Qnet.py",
+        "class_name": "DQNLightning",
+        "doc_index": 69,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "training_step",
+        "docstring_summary": "r\"\"\"Here you compute and return the training loss and some additional metrics for e.g. the progress bar or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 518,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "14": {
+    "query": "How does automatic optimization work?",
+    "query_type": "conceptual",
+    "relevant_docs": [
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Args:",
+        "path": "examples\\pytorch\\domain_templates\\reinforce_learn_ppo.py",
+        "class_name": "PPOLightning",
+        "doc_index": 50,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "on_train_start",
+        "docstring_summary": "Performns a configuration validation before training starts and raises errors for incompatible settings.",
+        "path": "src\\lightning\\pytorch\\callbacks\\gradient_accumulation_scheduler.py",
+        "class_name": "GradientAccumulationScheduler",
+        "doc_index": 409,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "configure_optimizers",
+        "docstring_summary": "r\"\"\"Choose what optimizers and learning-rate schedulers to use in your optimization. Normally you'd need one.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "class_name": "LightningModule",
+        "doc_index": 523,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "_update_learning_rates",
+        "docstring_summary": "Update learning rates.",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "class_name": "_TrainingEpochLoop",
+        "doc_index": 655,
+        "heuristic_score": 3
+      },
+      {
+        "func_name": "parallelize",
+        "docstring_summary": "Apply parallelisms and activation checkpointing to the model.",
+        "path": "examples\\fabric\\tensor_parallel\\parallelism.py",
+        "class_name": "",
+        "doc_index": 38,
+        "heuristic_score": 2
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "15": {
+    "query": "What is a LightningModule?",
+    "query_type": "conceptual",
+    "relevant_docs": [
+      {
+        "func_name": "find_usable_cuda_devices",
+        "docstring_summary": "Returns a list of all available and usable CUDA GPU devices.",
+        "path": "src\\lightning\\fabric\\accelerators\\cuda.py",
+        "class_name": "",
+        "doc_index": 140,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "_wrap_init_method",
+        "docstring_summary": "Wraps the ``__init__`` method of classes (currently :class:`~torch.utils.data.DataLoader` and",
+        "path": "src\\lightning\\fabric\\utilities\\data.py",
+        "class_name": "",
+        "doc_index": 295,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "on_validation_model_train",
+        "docstring_summary": "Called when the validation loop ends.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "class_name": "ModelHooks",
+        "doc_index": 481,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "on_test_model_train",
+        "docstring_summary": "Called when the test loop ends.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "class_name": "ModelHooks",
+        "doc_index": 483,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "transfer_batch_to_device",
+        "docstring_summary": "Override this hook if your :class:`~torch.utils.data.DataLoader` returns tensors wrapped in a custom data",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "class_name": "DataHooks",
+        "doc_index": 500,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  }
+}

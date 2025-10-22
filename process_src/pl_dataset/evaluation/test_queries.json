@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "type": "debugging",
+    "query": "How to fix 'RuntimeError: CUDA out of memory' error when training with PyTorch Lightning?",
+    "domain": "pytorch-lightning",
+    "difficulty": "medium"
+  },
+  {
+    "id": 2,
+    "type": "debugging",
+    "query": "Why is my validation loss not decreasing in Lightning Trainer?",
+    "domain": "pytorch-lightning",
+    "difficulty": "hard"
+  },
+  {
+    "id": 3,
+    "type": "api_usage",
+    "query": "What parameters does the Lightning Trainer accept?",
+    "domain": "pytorch-lightning",
+    "difficulty": "easy"
+  },
+  {
+    "id": 4,
+    "type": "api_usage",
+    "query": "How to use early stopping callback in PyTorch Lightning?",
+    "domain": "pytorch-lightning",
+    "difficulty": "medium"
+  },
+  {
+    "id": 5,
+    "type": "api_usage",
+    "query": "How to implement custom metrics in LightningModule?",
+    "domain": "pytorch-lightning",
+    "difficulty": "medium"
+  },
+  {
+    "id": 6,
+    "type": "implementation",
+    "query": "How to implement a custom callback for model checkpointing?",
+    "domain": "pytorch-lightning",
+    "difficulty": "hard"
+  },
+  {
+    "id": 7,
+    "type": "implementation",
+    "query": "Example of multi-GPU training setup with Lightning",
+    "domain": "pytorch-lightning",
+    "difficulty": "medium"
+  },
+  {
+    "id": 8,
+    "type": "implementation",
+    "query": "How to implement gradient accumulation in PyTorch Lightning?",
+    "domain": "pytorch-lightning",
+    "difficulty": "medium"
+  },
+  {
+    "id": 9,
+    "type": "conceptual",
+    "query": "What is the difference between training_step and validation_step in LightningModule?",
+    "domain": "pytorch-lightning",
+    "difficulty": "easy"
+  },
+  {
+    "id": 10,
+    "type": "conceptual",
+    "query": "How does automatic optimization work in PyTorch Lightning?",
+    "domain": "pytorch-lightning",
+    "difficulty": "hard"
+  }
+]

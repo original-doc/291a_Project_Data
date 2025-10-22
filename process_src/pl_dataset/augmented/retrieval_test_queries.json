@@ -1,0 +1,262 @@
+[
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\pytorch\\callbacks\\weight_averaging functionality?",
+    "expected_code": "def load_state_dict(self, state_dict: dict[str, Any]) -> None:\r\n        \"\"\"Called when loading a checkpoint.\r\n\r\n        Reloads the callback state given a ``state_dict``.\r\n\r\n        Args:\r\n            state_dict: A dictionary containing the callback state.\r\n\r\n        \"\"\"\r\n        self._latest_update_step = state_dict[\"latest_update_step\"]",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+      "start_line": 255,
+      "end_line": 264,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Called when loading a checkpoint.\r\n\r\n        Reloads the callback state given a ``state_dict``.\r\n\r\n ...",
+    "expected_code": "def load_state_dict(self, state_dict: dict[str, Any]) -> None:\r\n        \"\"\"Called when loading a checkpoint.\r\n\r\n        Reloads the callback state given a ``state_dict``.\r\n\r\n        Args:\r\n            state_dict: A dictionary containing the callback state.\r\n\r\n        \"\"\"\r\n        self._latest_update_step = state_dict[\"latest_update_step\"]",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+      "start_line": 255,
+      "end_line": 264,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Called when loading a checkpoint",
+    "expected_code": "def load_state_dict(self, state_dict: dict[str, Any]) -> None:\r\n        \"\"\"Called when loading a checkpoint.\r\n\r\n        Reloads the callback state given a ``state_dict``.\r\n\r\n        Args:\r\n            state_dict: A dictionary containing the callback state.\r\n\r\n        \"\"\"\r\n        self._latest_update_step = state_dict[\"latest_update_step\"]",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+      "start_line": 255,
+      "end_line": 264,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\pytorch\\loggers\\neptune functionality?",
+    "expected_code": "def _construct_path_with_prefix(self, *keys: str) -> str:\r\n        \"\"\"Return sequence of keys joined by `LOGGER_JOIN_CHAR`, started with `_prefix` if defined.\"\"\"\r\n        if self._prefix:\r\n            return self.LOGGER_JOIN_CHAR.join([self._prefix, *keys])\r\n        return self.LOGGER_JOIN_CHAR.join(keys)",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\loggers\\neptune.py",
+      "start_line": 311,
+      "end_line": 315,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Return sequence of keys joined by `LOGGER_JOIN_CHAR`, started with `_prefix` if defined....",
+    "expected_code": "def _construct_path_with_prefix(self, *keys: str) -> str:\r\n        \"\"\"Return sequence of keys joined by `LOGGER_JOIN_CHAR`, started with `_prefix` if defined.\"\"\"\r\n        if self._prefix:\r\n            return self.LOGGER_JOIN_CHAR.join([self._prefix, *keys])\r\n        return self.LOGGER_JOIN_CHAR.join(keys)",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\loggers\\neptune.py",
+      "start_line": 311,
+      "end_line": 315,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Return sequence of keys joined by `LOGGER_JOIN_CHAR`, started with `_prefix` if defined",
+    "expected_code": "def _construct_path_with_prefix(self, *keys: str) -> str:\r\n        \"\"\"Return sequence of keys joined by `LOGGER_JOIN_CHAR`, started with `_prefix` if defined.\"\"\"\r\n        if self._prefix:\r\n            return self.LOGGER_JOIN_CHAR.join([self._prefix, *keys])\r\n        return self.LOGGER_JOIN_CHAR.join(keys)",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\loggers\\neptune.py",
+      "start_line": 311,
+      "end_line": 315,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\pytorch\\cli functionality?",
+    "expected_code": "def _set_seed(self) -> None:\r\n        \"\"\"Sets the seed.\"\"\"\r\n        config_seed = self._get(self.config, \"seed_everything\")\r\n        if config_seed is False:\r\n            return\r\n        if config_seed is True:\r\n            # user requested seeding, choose randomly\r\n            config_seed = seed_everything(workers=True)\r\n        else:\r\n            config_seed = seed_everything(config_seed, workers=True)\r\n        if self.subcommand:\r\n            self.config[self.subcommand][\"seed_everything\"] = config_seed\r\n        else:\r\n            self.config[\"seed_everything\"] = config_seed",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\cli.py",
+      "start_line": 767,
+      "end_line": 780,
+      "has_examples": false,
+      "num_comments": 1,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Sets the seed. user requested seeding, choose randomly...",
+    "expected_code": "def _set_seed(self) -> None:\r\n        \"\"\"Sets the seed.\"\"\"\r\n        config_seed = self._get(self.config, \"seed_everything\")\r\n        if config_seed is False:\r\n            return\r\n        if config_seed is True:\r\n            # user requested seeding, choose randomly\r\n            config_seed = seed_everything(workers=True)\r\n        else:\r\n            config_seed = seed_everything(config_seed, workers=True)\r\n        if self.subcommand:\r\n            self.config[self.subcommand][\"seed_everything\"] = config_seed\r\n        else:\r\n            self.config[\"seed_everything\"] = config_seed",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\cli.py",
+      "start_line": 767,
+      "end_line": 780,
+      "has_examples": false,
+      "num_comments": 1,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Sets the seed",
+    "expected_code": "def _set_seed(self) -> None:\r\n        \"\"\"Sets the seed.\"\"\"\r\n        config_seed = self._get(self.config, \"seed_everything\")\r\n        if config_seed is False:\r\n            return\r\n        if config_seed is True:\r\n            # user requested seeding, choose randomly\r\n            config_seed = seed_everything(workers=True)\r\n        else:\r\n            config_seed = seed_everything(config_seed, workers=True)\r\n        if self.subcommand:\r\n            self.config[self.subcommand][\"seed_everything\"] = config_seed\r\n        else:\r\n            self.config[\"seed_everything\"] = config_seed",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\cli.py",
+      "start_line": 767,
+      "end_line": 780,
+      "has_examples": false,
+      "num_comments": 1,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\pytorch\\tuner\\tuning functionality?",
+    "expected_code": "def scale_batch_size(\r\n        self,\r\n        model: \"pl.LightningModule\",\r\n        train_dataloaders: Optional[Union[TRAIN_DATALOADERS, \"pl.LightningDataModule\"]] = None,\r\n        val_dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        datamodule: Optional[\"pl.LightningDataModule\"] = None,\r\n        method: Literal[\"fit\", \"validate\", \"test\", \"predict\"] = \"fit\",\r\n        mode: str = \"power\",\r\n        steps_per_trial: int = 3,\r\n        init_val: int = 2,\r\n        max_trials: int = 25,\r\n        batch_arg_name: str = \"batch_size\",\r\n    ) -> Optional[int]:\r\n        \"\"\"Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)\r\n        error.\r\n\r\n        Args:\r\n            model: Model to tune.\r\n            train_dataloaders: A collection of :class:`torch.utils.data.DataLoader` or a\r\n                :class:`~lightning.pytorch.core.datamodule.LightningDataModule` specifying training samples.\r\n                In the case of multiple dataloaders, please see this :ref:`section <multiple-dataloaders>`.\r\n            val_dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying validation samples.\r\n            dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying val/test/predict\r\n                samples used for running tuner on validation/testing/prediction.\r\n            datamodule: An instance of :class:`~lightning.pytorch.core.datamodule.LightningDataModule`.\r\n            method: Method to run tuner on. It can be any of ``(\"fit\", \"validate\", \"test\", \"predict\")``.\r\n            mode: Search strategy to update the batch size:\r\n\r\n                - ``'power'``: Keep multiplying the batch size by 2, until we get an OOM error.\r\n                - ``'binsearch'``: Initially keep multiplying by 2 and after encountering an OOM error\r\n                    do a binary search between the last successful batch size and the batch size that failed.\r\n\r\n            steps_per_trial: number of steps to run with a given batch size.\r\n                Ideally 1 should be enough to test if an OOM error occurs,\r\n                however in practise a few are needed\r\n            init_val: initial batch size to start the search with\r\n            max_trials: max number of increases in batch size done before\r\n               algorithm is terminated\r\n            batch_arg_name: name of the attribute that stores the batch size.\r\n                It is expected that the user has provided a model or datamodule that has a hyperparameter\r\n                with that name. We will look for this attribute name in the following places\r\n\r\n                - ``model``\r\n                - ``model.hparams``\r\n                - ``trainer.datamodule`` (the datamodule passed to the tune method)\r\n\r\n        \"\"\"\r\n        _check_tuner_configuration(train_dataloaders, val_dataloaders, dataloaders, method)\r\n        _check_scale_batch_size_configuration(self._trainer)\r\n\r\n        # local import to avoid circular import\r\n        from lightning.pytorch.callbacks.batch_size_finder import BatchSizeFinder\r\n\r\n        batch_size_finder: Callback = BatchSizeFinder(\r\n            mode=mode,\r\n            steps_per_trial=steps_per_trial,\r\n            init_val=init_val,\r\n            max_trials=max_trials,\r\n            batch_arg_name=batch_arg_name,\r\n        )\r\n        # do not continue with the loop in case Tuner is used\r\n        batch_size_finder._early_exit = True\r\n        self._trainer.callbacks = [batch_size_finder] + self._trainer.callbacks\r\n\r\n        if method == \"fit\":\r\n            self._trainer.fit(model, train_dataloaders, val_dataloaders, datamodule)\r\n        elif method == \"validate\":\r\n            self._trainer.validate(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"test\":\r\n            self._trainer.test(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"predict\":\r\n            self._trainer.predict(model, dataloaders, datamodule=datamodule)\r\n\r\n        self._trainer.callbacks = [cb for cb in self._trainer.callbacks if cb is not batch_size_finder]\r\n        return batch_size_finder.optimal_batch_size",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+      "start_line": 30,
+      "end_line": 105,
+      "has_examples": false,
+      "num_comments": 2,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Iteratively try to find the largest batch size for a given model that does not give an out of memory...",
+    "expected_code": "def scale_batch_size(\r\n        self,\r\n        model: \"pl.LightningModule\",\r\n        train_dataloaders: Optional[Union[TRAIN_DATALOADERS, \"pl.LightningDataModule\"]] = None,\r\n        val_dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        datamodule: Optional[\"pl.LightningDataModule\"] = None,\r\n        method: Literal[\"fit\", \"validate\", \"test\", \"predict\"] = \"fit\",\r\n        mode: str = \"power\",\r\n        steps_per_trial: int = 3,\r\n        init_val: int = 2,\r\n        max_trials: int = 25,\r\n        batch_arg_name: str = \"batch_size\",\r\n    ) -> Optional[int]:\r\n        \"\"\"Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)\r\n        error.\r\n\r\n        Args:\r\n            model: Model to tune.\r\n            train_dataloaders: A collection of :class:`torch.utils.data.DataLoader` or a\r\n                :class:`~lightning.pytorch.core.datamodule.LightningDataModule` specifying training samples.\r\n                In the case of multiple dataloaders, please see this :ref:`section <multiple-dataloaders>`.\r\n            val_dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying validation samples.\r\n            dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying val/test/predict\r\n                samples used for running tuner on validation/testing/prediction.\r\n            datamodule: An instance of :class:`~lightning.pytorch.core.datamodule.LightningDataModule`.\r\n            method: Method to run tuner on. It can be any of ``(\"fit\", \"validate\", \"test\", \"predict\")``.\r\n            mode: Search strategy to update the batch size:\r\n\r\n                - ``'power'``: Keep multiplying the batch size by 2, until we get an OOM error.\r\n                - ``'binsearch'``: Initially keep multiplying by 2 and after encountering an OOM error\r\n                    do a binary search between the last successful batch size and the batch size that failed.\r\n\r\n            steps_per_trial: number of steps to run with a given batch size.\r\n                Ideally 1 should be enough to test if an OOM error occurs,\r\n                however in practise a few are needed\r\n            init_val: initial batch size to start the search with\r\n            max_trials: max number of increases in batch size done before\r\n               algorithm is terminated\r\n            batch_arg_name: name of the attribute that stores the batch size.\r\n                It is expected that the user has provided a model or datamodule that has a hyperparameter\r\n                with that name. We will look for this attribute name in the following places\r\n\r\n                - ``model``\r\n                - ``model.hparams``\r\n                - ``trainer.datamodule`` (the datamodule passed to the tune method)\r\n\r\n        \"\"\"\r\n        _check_tuner_configuration(train_dataloaders, val_dataloaders, dataloaders, method)\r\n        _check_scale_batch_size_configuration(self._trainer)\r\n\r\n        # local import to avoid circular import\r\n        from lightning.pytorch.callbacks.batch_size_finder import BatchSizeFinder\r\n\r\n        batch_size_finder: Callback = BatchSizeFinder(\r\n            mode=mode,\r\n            steps_per_trial=steps_per_trial,\r\n            init_val=init_val,\r\n            max_trials=max_trials,\r\n            batch_arg_name=batch_arg_name,\r\n        )\r\n        # do not continue with the loop in case Tuner is used\r\n        batch_size_finder._early_exit = True\r\n        self._trainer.callbacks = [batch_size_finder] + self._trainer.callbacks\r\n\r\n        if method == \"fit\":\r\n            self._trainer.fit(model, train_dataloaders, val_dataloaders, datamodule)\r\n        elif method == \"validate\":\r\n            self._trainer.validate(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"test\":\r\n            self._trainer.test(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"predict\":\r\n            self._trainer.predict(model, dataloaders, datamodule=datamodule)\r\n\r\n        self._trainer.callbacks = [cb for cb in self._trainer.callbacks if cb is not batch_size_finder]\r\n        return batch_size_finder.optimal_batch_size",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+      "start_line": 30,
+      "end_line": 105,
+      "has_examples": false,
+      "num_comments": 2,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)\r\n        error",
+    "expected_code": "def scale_batch_size(\r\n        self,\r\n        model: \"pl.LightningModule\",\r\n        train_dataloaders: Optional[Union[TRAIN_DATALOADERS, \"pl.LightningDataModule\"]] = None,\r\n        val_dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        dataloaders: Optional[EVAL_DATALOADERS] = None,\r\n        datamodule: Optional[\"pl.LightningDataModule\"] = None,\r\n        method: Literal[\"fit\", \"validate\", \"test\", \"predict\"] = \"fit\",\r\n        mode: str = \"power\",\r\n        steps_per_trial: int = 3,\r\n        init_val: int = 2,\r\n        max_trials: int = 25,\r\n        batch_arg_name: str = \"batch_size\",\r\n    ) -> Optional[int]:\r\n        \"\"\"Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)\r\n        error.\r\n\r\n        Args:\r\n            model: Model to tune.\r\n            train_dataloaders: A collection of :class:`torch.utils.data.DataLoader` or a\r\n                :class:`~lightning.pytorch.core.datamodule.LightningDataModule` specifying training samples.\r\n                In the case of multiple dataloaders, please see this :ref:`section <multiple-dataloaders>`.\r\n            val_dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying validation samples.\r\n            dataloaders: A :class:`torch.utils.data.DataLoader` or a sequence of them specifying val/test/predict\r\n                samples used for running tuner on validation/testing/prediction.\r\n            datamodule: An instance of :class:`~lightning.pytorch.core.datamodule.LightningDataModule`.\r\n            method: Method to run tuner on. It can be any of ``(\"fit\", \"validate\", \"test\", \"predict\")``.\r\n            mode: Search strategy to update the batch size:\r\n\r\n                - ``'power'``: Keep multiplying the batch size by 2, until we get an OOM error.\r\n                - ``'binsearch'``: Initially keep multiplying by 2 and after encountering an OOM error\r\n                    do a binary search between the last successful batch size and the batch size that failed.\r\n\r\n            steps_per_trial: number of steps to run with a given batch size.\r\n                Ideally 1 should be enough to test if an OOM error occurs,\r\n                however in practise a few are needed\r\n            init_val: initial batch size to start the search with\r\n            max_trials: max number of increases in batch size done before\r\n               algorithm is terminated\r\n            batch_arg_name: name of the attribute that stores the batch size.\r\n                It is expected that the user has provided a model or datamodule that has a hyperparameter\r\n                with that name. We will look for this attribute name in the following places\r\n\r\n                - ``model``\r\n                - ``model.hparams``\r\n                - ``trainer.datamodule`` (the datamodule passed to the tune method)\r\n\r\n        \"\"\"\r\n        _check_tuner_configuration(train_dataloaders, val_dataloaders, dataloaders, method)\r\n        _check_scale_batch_size_configuration(self._trainer)\r\n\r\n        # local import to avoid circular import\r\n        from lightning.pytorch.callbacks.batch_size_finder import BatchSizeFinder\r\n\r\n        batch_size_finder: Callback = BatchSizeFinder(\r\n            mode=mode,\r\n            steps_per_trial=steps_per_trial,\r\n            init_val=init_val,\r\n            max_trials=max_trials,\r\n            batch_arg_name=batch_arg_name,\r\n        )\r\n        # do not continue with the loop in case Tuner is used\r\n        batch_size_finder._early_exit = True\r\n        self._trainer.callbacks = [batch_size_finder] + self._trainer.callbacks\r\n\r\n        if method == \"fit\":\r\n            self._trainer.fit(model, train_dataloaders, val_dataloaders, datamodule)\r\n        elif method == \"validate\":\r\n            self._trainer.validate(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"test\":\r\n            self._trainer.test(model, dataloaders, datamodule=datamodule)\r\n        elif method == \"predict\":\r\n            self._trainer.predict(model, dataloaders, datamodule=datamodule)\r\n\r\n        self._trainer.callbacks = [cb for cb in self._trainer.callbacks if cb is not batch_size_finder]\r\n        return batch_size_finder.optimal_batch_size",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+      "start_line": 30,
+      "end_line": 105,
+      "has_examples": false,
+      "num_comments": 2,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\fabric\\utilities\\distributed functionality?",
+    "expected_code": "def is_shared_filesystem(strategy: \"Strategy\", path: Optional[_PATH] = None, timeout: int = 3) -> bool:\r\n    \"\"\"Checks whether the filesystem under the given path is shared across all processes.\r\n\r\n    This function should only be used in a context where distributed is initialized.\r\n\r\n    Args:\r\n        strategy: The strategy being used, either from Fabric (``fabric.strategy``) or from Trainer\r\n            (``trainer.strategy``).\r\n        path: The path to check. Defaults to the current working directory. The user must have permissions to write\r\n            to this path or the parent folder, and the filesystem must be writable.\r\n        timeout: If any of the processes can't list the file created by rank 0 within this many seconds, the\r\n            filesystem is determined to be not shared.\r\n\r\n    \"\"\"\r\n    # Fast path: Any non-local filesystem is considered shared (e.g., S3)\r\n    if path is not None and not _is_local_file_protocol(path):\r\n        return True\r\n\r\n    path = Path(Path.cwd() if path is None else path).resolve()\r\n\r\n    # Fast path: Only distributed strategies can detect shared filesystems\r\n    if not hasattr(strategy, \"world_size\") or strategy.world_size == 1:\r\n        return True\r\n\r\n    # Fast path: If the path is not the same on all ranks we know it's not a shared filesystem\r\n    rank_zero_path = strategy.broadcast(path)\r\n    if not strategy.reduce_boolean_decision(rank_zero_path == path, all=True):\r\n        return False\r\n\r\n    if not strategy.reduce_boolean_decision(path.exists(), all=True):\r\n        raise FileNotFoundError(\r\n            f\"Unable to determine if the path belongs to a shared filesystem. The path does not exist: {path}\"\r\n        )\r\n\r\n    path = path.parent if path.is_file() else path\r\n    check_file = path / \".lightning_shared_fs_check\"\r\n    check_file.unlink(missing_ok=True)\r\n\r\n    strategy.barrier()\r\n    if strategy.is_global_zero:\r\n        # Rank 0 creates the file\r\n        check_file.touch()\r\n        found = True\r\n    else:\r\n        # All other ranks will wait until they find the file or timeout\r\n        start = time.perf_counter()\r\n        found = False\r\n        while not found and (time.perf_counter() - start) < timeout:\r\n            found = check_file.exists()\r\n    strategy.barrier()\r\n\r\n    all_found = strategy.reduce_boolean_decision(found, all=True)\r\n\r\n    with contextlib.suppress(OSError):  # handle race condition on deletion\r\n        check_file.unlink()\r\n\r\n    return all_found",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\utilities\\distributed.py",
+      "start_line": 43,
+      "end_line": 99,
+      "has_examples": false,
+      "num_comments": 5,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Checks whether the filesystem under the given path is shared across all processes.\r\n\r\n    This funct...",
+    "expected_code": "def is_shared_filesystem(strategy: \"Strategy\", path: Optional[_PATH] = None, timeout: int = 3) -> bool:\r\n    \"\"\"Checks whether the filesystem under the given path is shared across all processes.\r\n\r\n    This function should only be used in a context where distributed is initialized.\r\n\r\n    Args:\r\n        strategy: The strategy being used, either from Fabric (``fabric.strategy``) or from Trainer\r\n            (``trainer.strategy``).\r\n        path: The path to check. Defaults to the current working directory. The user must have permissions to write\r\n            to this path or the parent folder, and the filesystem must be writable.\r\n        timeout: If any of the processes can't list the file created by rank 0 within this many seconds, the\r\n            filesystem is determined to be not shared.\r\n\r\n    \"\"\"\r\n    # Fast path: Any non-local filesystem is considered shared (e.g., S3)\r\n    if path is not None and not _is_local_file_protocol(path):\r\n        return True\r\n\r\n    path = Path(Path.cwd() if path is None else path).resolve()\r\n\r\n    # Fast path: Only distributed strategies can detect shared filesystems\r\n    if not hasattr(strategy, \"world_size\") or strategy.world_size == 1:\r\n        return True\r\n\r\n    # Fast path: If the path is not the same on all ranks we know it's not a shared filesystem\r\n    rank_zero_path = strategy.broadcast(path)\r\n    if not strategy.reduce_boolean_decision(rank_zero_path == path, all=True):\r\n        return False\r\n\r\n    if not strategy.reduce_boolean_decision(path.exists(), all=True):\r\n        raise FileNotFoundError(\r\n            f\"Unable to determine if the path belongs to a shared filesystem. The path does not exist: {path}\"\r\n        )\r\n\r\n    path = path.parent if path.is_file() else path\r\n    check_file = path / \".lightning_shared_fs_check\"\r\n    check_file.unlink(missing_ok=True)\r\n\r\n    strategy.barrier()\r\n    if strategy.is_global_zero:\r\n        # Rank 0 creates the file\r\n        check_file.touch()\r\n        found = True\r\n    else:\r\n        # All other ranks will wait until they find the file or timeout\r\n        start = time.perf_counter()\r\n        found = False\r\n        while not found and (time.perf_counter() - start) < timeout:\r\n            found = check_file.exists()\r\n    strategy.barrier()\r\n\r\n    all_found = strategy.reduce_boolean_decision(found, all=True)\r\n\r\n    with contextlib.suppress(OSError):  # handle race condition on deletion\r\n        check_file.unlink()\r\n\r\n    return all_found",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\utilities\\distributed.py",
+      "start_line": 43,
+      "end_line": 99,
+      "has_examples": false,
+      "num_comments": 5,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Checks whether the filesystem under the given path is shared across all processes",
+    "expected_code": "def is_shared_filesystem(strategy: \"Strategy\", path: Optional[_PATH] = None, timeout: int = 3) -> bool:\r\n    \"\"\"Checks whether the filesystem under the given path is shared across all processes.\r\n\r\n    This function should only be used in a context where distributed is initialized.\r\n\r\n    Args:\r\n        strategy: The strategy being used, either from Fabric (``fabric.strategy``) or from Trainer\r\n            (``trainer.strategy``).\r\n        path: The path to check. Defaults to the current working directory. The user must have permissions to write\r\n            to this path or the parent folder, and the filesystem must be writable.\r\n        timeout: If any of the processes can't list the file created by rank 0 within this many seconds, the\r\n            filesystem is determined to be not shared.\r\n\r\n    \"\"\"\r\n    # Fast path: Any non-local filesystem is considered shared (e.g., S3)\r\n    if path is not None and not _is_local_file_protocol(path):\r\n        return True\r\n\r\n    path = Path(Path.cwd() if path is None else path).resolve()\r\n\r\n    # Fast path: Only distributed strategies can detect shared filesystems\r\n    if not hasattr(strategy, \"world_size\") or strategy.world_size == 1:\r\n        return True\r\n\r\n    # Fast path: If the path is not the same on all ranks we know it's not a shared filesystem\r\n    rank_zero_path = strategy.broadcast(path)\r\n    if not strategy.reduce_boolean_decision(rank_zero_path == path, all=True):\r\n        return False\r\n\r\n    if not strategy.reduce_boolean_decision(path.exists(), all=True):\r\n        raise FileNotFoundError(\r\n            f\"Unable to determine if the path belongs to a shared filesystem. The path does not exist: {path}\"\r\n        )\r\n\r\n    path = path.parent if path.is_file() else path\r\n    check_file = path / \".lightning_shared_fs_check\"\r\n    check_file.unlink(missing_ok=True)\r\n\r\n    strategy.barrier()\r\n    if strategy.is_global_zero:\r\n        # Rank 0 creates the file\r\n        check_file.touch()\r\n        found = True\r\n    else:\r\n        # All other ranks will wait until they find the file or timeout\r\n        start = time.perf_counter()\r\n        found = False\r\n        while not found and (time.perf_counter() - start) < timeout:\r\n            found = check_file.exists()\r\n    strategy.barrier()\r\n\r\n    all_found = strategy.reduce_boolean_decision(found, all=True)\r\n\r\n    with contextlib.suppress(OSError):  # handle race condition on deletion\r\n        check_file.unlink()\r\n\r\n    return all_found",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\utilities\\distributed.py",
+      "start_line": 43,
+      "end_line": 99,
+      "has_examples": false,
+      "num_comments": 5,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\fabric\\connector functionality?",
+    "expected_code": "def _choose_auto_accelerator() -> str:\r\n        \"\"\"Choose the accelerator type (str) based on availability when ``accelerator='auto'``.\"\"\"\r\n        if XLAAccelerator.is_available():\r\n            return \"tpu\"\r\n        if MPSAccelerator.is_available():\r\n            return \"mps\"\r\n        if CUDAAccelerator.is_available():\r\n            return \"cuda\"\r\n        return \"cpu\"",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\connector.py",
+      "start_line": 316,
+      "end_line": 324,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Choose the accelerator type (str) based on availability when ``accelerator='auto'``....",
+    "expected_code": "def _choose_auto_accelerator() -> str:\r\n        \"\"\"Choose the accelerator type (str) based on availability when ``accelerator='auto'``.\"\"\"\r\n        if XLAAccelerator.is_available():\r\n            return \"tpu\"\r\n        if MPSAccelerator.is_available():\r\n            return \"mps\"\r\n        if CUDAAccelerator.is_available():\r\n            return \"cuda\"\r\n        return \"cpu\"",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\connector.py",
+      "start_line": 316,
+      "end_line": 324,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "debugging",
+    "query": "Example code for Choose the accelerator type (str) based on availability when ``accelerator='auto'``",
+    "expected_code": "def _choose_auto_accelerator() -> str:\r\n        \"\"\"Choose the accelerator type (str) based on availability when ``accelerator='auto'``.\"\"\"\r\n        if XLAAccelerator.is_available():\r\n            return \"tpu\"\r\n        if MPSAccelerator.is_available():\r\n            return \"mps\"\r\n        if CUDAAccelerator.is_available():\r\n            return \"cuda\"\r\n        return \"cpu\"",
+    "metadata": {
+      "file_path": "src\\lightning\\fabric\\connector.py",
+      "start_line": 316,
+      "end_line": 324,
+      "has_examples": false,
+      "num_comments": 0,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "api_usage",
+    "query": "How to use src\\lightning\\pytorch\\callbacks\\weight_averaging functionality?",
+    "expected_code": "def setup(self, trainer: \"pl.Trainer\", pl_module: \"pl.LightningModule\", stage: str) -> None:\r\n        \"\"\"Called when fit, validate, test, predict, or tune begins.\r\n\r\n        Creates an :class:`AveragedModel` when fit begins.\r\n\r\n        Args:\r\n            trainer: The current :class:`~lightning.pytorch.trainer.trainer.Trainer` instance.\r\n            pl_module: The current :class:`~lightning.pytorch.core.LightningModule` instance.\r\n            stage: The :class:`~lightning.pytorch.trainer.trainer.Trainer` state.\r\n\r\n        \"\"\"\r\n        if stage == \"fit\":\r\n            device = self._device or pl_module.device\r\n\r\n            # If the configure_model hook is overridden, call it to create the layers before constructing the\r\n            # AveragedModel. However, sharding will not be done and a warning will be issued.\r\n            if is_overridden(\"configure_model\", pl_module):\r\n                rank_zero_warn(\r\n                    \"You're using the WeightAveraging callback with a model that overrides the configure_model \"\r\n                    \"callback. WeightAveraging doesn't support sharding model layers, so you may run out of memory.\"\r\n                )\r\n                pl_module.configure_model()\r\n\r\n            self._average_model = AveragedModel(\r\n                model=pl_module, device=device, use_buffers=self._use_buffers, **self._kwargs\r\n            )",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+      "start_line": 133,
+      "end_line": 158,
+      "has_examples": false,
+      "num_comments": 1,
+      "description": "Full documentation to full code"
+    }
+  },
+  {
+    "type": "implementation",
+    "query": "Called when fit, validate, test, predict, or tune begins.\r\n\r\n        Creates an :class:`AveragedMode...",
+    "expected_code": "def setup(self, trainer: \"pl.Trainer\", pl_module: \"pl.LightningModule\", stage: str) -> None:\r\n        \"\"\"Called when fit, validate, test, predict, or tune begins.\r\n\r\n        Creates an :class:`AveragedModel` when fit begins.\r\n\r\n        Args:\r\n            trainer: The current :class:`~lightning.pytorch.trainer.trainer.Trainer` instance.\r\n            pl_module: The current :class:`~lightning.pytorch.core.LightningModule` instance.\r\n            stage: The :class:`~lightning.pytorch.trainer.trainer.Trainer` state.\r\n\r\n        \"\"\"\r\n        if stage == \"fit\":\r\n            device = self._device or pl_module.device\r\n\r\n            # If the configure_model hook is overridden, call it to create the layers before constructing the\r\n            # AveragedModel. However, sharding will not be done and a warning will be issued.\r\n            if is_overridden(\"configure_model\", pl_module):\r\n                rank_zero_warn(\r\n                    \"You're using the WeightAveraging callback with a model that overrides the configure_model \"\r\n                    \"callback. WeightAveraging doesn't support sharding model layers, so you may run out of memory.\"\r\n                )\r\n                pl_module.configure_model()\r\n\r\n            self._average_model = AveragedModel(\r\n                model=pl_module, device=device, use_buffers=self._use_buffers, **self._kwargs\r\n            )",
+    "metadata": {
+      "file_path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+      "start_line": 133,
+      "end_line": 158,
+      "has_examples": false,
+      "num_comments": 1,
+      "description": "Full documentation to full code"
+    }
+  }
+]
