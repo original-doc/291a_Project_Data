@@ -231,3 +231,7 @@ After creating your dataset, proceed to Phase 2:
 ## License
 
 This dataset builder follows the methodology described in the PyTorrent paper and is intended for educational purposes as part of the Domain-Specific RAG Systems project.
+
+## Acknowledge
+
+Claude.ai
