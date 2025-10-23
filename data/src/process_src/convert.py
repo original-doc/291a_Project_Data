@@ -1,10 +1,11 @@
 import json
 import os
 
-# --- Configuration ---
+
+APPLY_FILTERING = True
+# ----------------------------------------------------
 
 # The directory where the source .jsonl files are located
-# Based on your image, this is 'pl_dataset/argumented'
 SOURCE_DIR = os.path.join('pl_dataset', 'augmented')
 
 # The four source files to process
@@ -19,16 +20,16 @@ SOURCE_FILES = [
 # The directory to save the new dataset in
 OUTPUT_DIR = 'src_dataset'
 
-# The name of the new output file (now .json for readability)
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, 'filtered_data.json')
+# Dynamically set the output file name based on the toggle
+output_filename = "filtered_data.json" if APPLY_FILTERING else "unfiltered_data.json"
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, output_filename)
 
-# List of path strings to filter for.
-# We use raw strings (r"...") to handle the backslashes correctly.
+# List of path strings to filter for (only used if APPLY_FILTERING is True)
 FILTER_PATHS_RAW = [
     r"src\lightning\pytorch\callbacks",
     "core",
     "loops",
-    #"strategies",
+    # "strategies",
     "trainer",
     "tuner",
     "utilities",
@@ -39,17 +40,20 @@ FILTER_PATHS = [p.replace('\\', '/') for p in FILTER_PATHS_RAW]
 
 # --- Main Script ---
 
-def create_filtered_dataset():
+def create_dataset():
     """
-    Loads multiple source JSONL files, filters based on path,
+    Loads multiple source JSONL files, optionally filters based on path,
     and writes to a single JSON file in the target schema.
     """
-    print("Starting conversion...")
+    if APPLY_FILTERING:
+        print("Starting conversion (Mode: FILTERING ON)...")
+    else:
+        print("Starting conversion (Mode: FILTERING OFF)...")
 
     # Ensure the output directory exists
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    all_filtered_data = []  # This list will hold all matching records
+    all_data = []  # This list will hold all records to be saved
     new_index = 0
     total_lines_processed = 0
 
@@ -68,7 +72,6 @@ def create_filtered_dataset():
                     total_lines_processed += 1
                     lines_in_file += 1
                     try:
-                        # Load the data from one line
                         data = json.loads(line)
                     except json.JSONDecodeError:
                         print(f"Warning: Skipping malformed JSON line {lines_in_file} in {filename}")
@@ -79,11 +82,20 @@ def create_filtered_dataset():
                         print(f"Warning: Skipping record {lines_in_file} in {filename} due to missing 'path'")
                         continue
 
-                    # Normalize the path from the data for comparison
-                    normalized_path = original_path.replace('\\', '/')
+                    # --- This is the new filtering logic ---
+                    keep_this_record = False
+                    if not APPLY_FILTERING:
+                        # If filtering is OFF, keep every record
+                        keep_this_record = True
+                    else:
+                        # If filtering is ON, check the path
+                        normalized_path = original_path.replace('\\', '/')
+                        if any(filter_p in normalized_path for filter_p in FILTER_PATHS):
+                            keep_this_record = True
+                    # ----------------------------------------
 
-                    # Check if the normalized path contains ANY of the filter strings
-                    if any(filter_p in normalized_path for filter_p in FILTER_PATHS):
+                    # If the record is marked to be kept, process it
+                    if keep_this_record:
                         
                         # --- 1. Construct the new 'text' field ---
                         meta_data_parts = [
@@ -109,38 +121,36 @@ def create_filtered_dataset():
                         # --- 2. Create the new record in the target schema ---
                         new_record = {
                             "label": "src_data",
-                            "file": original_path,  # The original path
-                            "index": new_index,      # The new, sequential index
-                            "text": text_content.strip() # The combined text block
+                            "file": original_path,
+                            "index": new_index,
+                            "text": text_content.strip()
                         }
                         
                         # --- 3. Add the new record to our master list ---
-                        all_filtered_data.append(new_record)
+                        all_data.append(new_record)
                         new_index += 1
 
         except FileNotFoundError:
             print(f"Error: Source file not found at '{source_path}'")
-            print("Please make sure the file exists in the specified directory.")
-            continue  # Skip to the next file
+            continue 
         except Exception as e:
             print(f"An error occurred while processing {source_path}: {e}")
-            continue # Skip to the next file
+            continue
 
     # --- 4. Write the final combined list to the output JSON file ---
-    if not all_filtered_data:
-        print("\nNo matching data was found. Output file will not be created.")
+    if not all_data:
+        print("\nNo data was found or kept. Output file will not be created.")
         return
 
     try:
-        print(f"\nWriting {len(all_filtered_data)} records to '{OUTPUT_FILE}'...")
+        print(f"\nWriting {len(all_data)} records to '{OUTPUT_FILE}'...")
         with open(OUTPUT_FILE, 'w', encoding='utf-8') as f_out:
-            # Use json.dump (not dumps) to write the whole list to the file
             # indent=2 makes it human-readable (pretty-printed)
-            json.dump(all_filtered_data, f_out, indent=2)
+            json.dump(all_data, f_out, indent=2)
             
         print("\n--- Conversion Complete ---")
         print(f"Total lines processed from all files: {total_lines_processed}")
-        print(f"Total records kept (filtered): {len(all_filtered_data)}")
+        print(f"Total records kept: {len(all_data)}")
         print(f"New dataset saved to: '{OUTPUT_FILE}'")
 
     except Exception as e:
@@ -149,4 +159,4 @@ def create_filtered_dataset():
 
 # Run the conversion function when the script is executed
 if __name__ == "__main__":
-    create_filtered_dataset()
+    create_dataset()
