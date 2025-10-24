@@ -3,6 +3,7 @@
     "title": "ValueError(f\"{func} does not have a return type annotation\") when implementing LightningCLI",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19637",
     "createdAt": "2024-03-15T14:13:40Z",
+    "answerChosenAt": "2024-03-17T16:15:02Z",
     "author": {
       "login": "djtschke"
     },
@@ -21,6 +22,7 @@
     "title": "Multiple Sequential trainings slows down speed",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
     "createdAt": "2023-04-27T07:43:47Z",
+    "answerChosenAt": "2023-04-27T09:05:42Z",
     "author": {
       "login": "HadiSDev"
     },
@@ -39,6 +41,7 @@
     "title": "TypeError: on_validation_end() missing 1 required positional argument: 'outputs'",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17182",
     "createdAt": "2023-03-23T22:20:17Z",
+    "answerChosenAt": "2023-11-14T07:40:22Z",
     "author": {
       "login": "dimgag"
     },
@@ -57,6 +60,7 @@
     "title": "Current best practices to initialize massive (50B parameter+) models",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
     "createdAt": "2023-03-03T15:44:50Z",
+    "answerChosenAt": "2023-03-09T15:10:54Z",
     "author": {
       "login": "azton"
     },
@@ -75,6 +79,7 @@
     "title": "MLFlow UI and save_dir specification",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16112",
     "createdAt": "2022-12-19T09:39:19Z",
+    "answerChosenAt": "2022-12-26T10:21:48Z",
     "author": null,
     "bodyText": "Hello,\nWhen I use the MLFlowLogger without setting save_dir argument, then run mlflow ui, I have no issue to display artefacts.\nIn mlruns/438809872721685038/d0b0373f48c549f3b36e97f5017dda71/meta.yml, I see\nartifact_uri: file:./mlruns/438809872721685038/d0b0373f48c549f3b36e97f5017dda71/artifacts\nWhen I set save_dir (here \"experiments/mlruns\"), then run cd experiments;mlflow ui, I don't see the artefacts.\nIn experiments/mlruns/933121669842833043/64cd5a18fe71423d8c9423a320ee7b91/meta.yml, I see\nartifact_uri: file:experiments/mlruns/933121669842833043/64cd5a18fe71423d8c9423a320ee7b91/artifacts\nI fix it by setting the tracking_uri to set an absolute path, like this :\nsave_dir = \"experiments/mlruns\"\npl.loggers.mlflow.MLFlowLogger(\n    save_dir=save_dir,\n    experiment_name=experiment_name,\n    run_name=run_name,\n    tracking_uri=f\"file://{save_dir}\"\n)\n\nIs there a better way to fix it ?\nIs it a good idea to open an issue about it ?",
     "answer": {
@@ -91,6 +96,7 @@
     "title": "Accuracy/loss is not improving when train huggingface transformer bert",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/15044",
     "createdAt": "2022-10-08T13:48:41Z",
+    "answerChosenAt": "2022-10-10T03:30:33Z",
     "author": {
       "login": "Klassikcat"
     },
@@ -109,6 +115,7 @@
     "title": "Using data from training_epoch_end in validation_epoch_end.",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/14491",
     "createdAt": "2022-09-01T23:51:37Z",
+    "answerChosenAt": "2022-09-02T00:14:37Z",
     "author": {
       "login": "amdson"
     },
@@ -127,6 +134,7 @@
     "title": "Proper way to do contrastive learning with DDP & PT-Lightning",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/14390",
     "createdAt": "2022-08-25T15:50:33Z",
+    "answerChosenAt": "2022-08-31T12:41:51Z",
     "author": {
       "login": "kkarrancsu"
     },
@@ -145,6 +153,7 @@
     "title": "`RuntimeError: unsupported operation: some elements of the input tensor and the written-to tensor refer to a single memory location`",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/14377",
     "createdAt": "2022-08-24T01:27:09Z",
+    "answerChosenAt": "2022-08-24T01:29:52Z",
     "author": {
       "login": "morestart"
     },
@@ -163,6 +172,7 @@
     "title": "How to register a (repeatedly) sampled random tensor?",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/14131",
     "createdAt": "2022-08-10T02:49:42Z",
+    "answerChosenAt": "2022-08-11T05:49:57Z",
     "author": {
       "login": "RylanSchaeffer"
     },
@@ -181,6 +191,7 @@
     "title": "Warning during save_hyperparameter() gives misleading advice?",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13615",
     "createdAt": "2022-07-12T09:48:33Z",
+    "answerChosenAt": "2022-07-13T09:37:49Z",
     "author": {
       "login": "hogru"
     },
@@ -199,6 +210,7 @@
     "title": "when I configure callbacks in the model instead of in the Trainer function, will the model look for the best model or the current model when testing?",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13611",
     "createdAt": "2022-07-12T06:39:32Z",
+    "answerChosenAt": "2022-07-13T11:07:09Z",
     "author": {
       "login": "Struggle-Forever"
     },
@@ -217,6 +229,7 @@
     "title": "DDP Hangs with TORCH_DISTRIBUTED_DEBUG = DETAIL",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13503",
     "createdAt": "2022-07-02T00:31:58Z",
+    "answerChosenAt": "2022-07-04T23:54:00Z",
     "author": {
       "login": "kelvins64"
     },
@@ -235,6 +248,7 @@
     "title": "Training seems to pause every N steps",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13375",
     "createdAt": "2022-06-22T22:18:02Z",
+    "answerChosenAt": "2022-08-03T02:57:38Z",
     "author": {
       "login": "mfoglio"
     },
@@ -253,6 +267,7 @@
     "title": "DDP: NCCL \" The server socket has failed to bind to...\"",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13264",
     "createdAt": "2022-06-10T03:23:03Z",
+    "answerChosenAt": "2022-06-10T05:57:41Z",
     "author": {
       "login": "drscotthawley"
     },
@@ -271,6 +286,7 @@
     "title": "RuntimeError: Trying to backward through the graph a second time",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13219",
     "createdAt": "2022-06-03T07:59:20Z",
+    "answerChosenAt": "2022-06-03T08:47:47Z",
     "author": {
       "login": "josyulakrishna"
     },
@@ -289,6 +305,7 @@
     "title": "Effective batch size in DDP",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13165",
     "createdAt": "2022-05-27T06:49:44Z",
+    "answerChosenAt": "2022-05-30T01:00:30Z",
     "author": {
       "login": "pengzhangzhi"
     },
@@ -307,6 +324,7 @@
     "title": "ddp help",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13032",
     "createdAt": "2022-05-10T22:34:55Z",
+    "answerChosenAt": "2022-05-12T14:28:14Z",
     "author": {
       "login": "sneiman"
     },
@@ -325,6 +343,7 @@
     "title": "Specify Trainer strategy in CLI config?",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12978",
     "createdAt": "2022-05-04T18:24:02Z",
+    "answerChosenAt": "2022-05-05T20:28:45Z",
     "author": {
       "login": "wwbrannon"
     },
@@ -343,6 +362,7 @@
     "title": "How to get different random minibatch orders?",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
     "createdAt": "2022-04-23T15:11:29Z",
+    "answerChosenAt": "2022-04-27T08:25:46Z",
     "author": {
       "login": "jaak-s"
     },
@@ -361,6 +381,7 @@
     "title": "When I use the official sample to carry out back propagation manually, I make mistakes. First, there is no optimizer, and second, there is no attribute in the image",
     "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12683",
     "createdAt": "2022-04-10T03:40:54Z",
+    "answerChosenAt": "2022-08-03T03:04:44Z",
     "author": {
       "login": "Hou-jing"
     },

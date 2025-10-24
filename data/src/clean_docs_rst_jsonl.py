@@ -11,7 +11,7 @@ Incremental changes:
   - Convert reStructuredText section titles (overline/underline styles) to Markdown '#'-style headings.
   - Prior behavior kept: field slimming and optional saving of `code_blocks`.
 
-python clean_docs_rst_jsonl.py --in docs_rst.jsonl --out lightning_docs_cleaned.json
+python src/clean_docs_rst_jsonl.py --in .\unfiltered_data\lightning_docs_rst.jsonl   --out .\final_data\lightning_docs_cleaned.json
 """
 import argparse
 import json
@@ -311,7 +311,7 @@ def process_file(
             # Build slim output item
             section_title = j.get("section_title", "") or ""
             item = {
-                "url_html": url_html,
+                "file": url_html.replace("https://lightning.ai/", ""),
                 "title": sanitize_title(section_title),
                 "text": text_clean,
             }
@@ -324,6 +324,7 @@ def process_file(
     # Add index field
     for idx, obj in enumerate(output_items):
         obj["index"] = idx
+        obj["label"] = "docs"
 
     # Write a single JSON array to output
     with outp.open("w", encoding="utf-8") as fout:
