@@ -1,0 +1,370 @@
+[
+  {
+    "query_id": 1,
+    "query": "How to fix CUDA out of memory error in PyTorch Lightning?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "_check_bad_cuda_fork",
+        "docstring_summary": "Checks whether it is safe to fork and initialize CUDA in the new processes, and raises an exception if not.",
+        "path": "src\\lightning\\fabric\\strategies\\launchers\\multiprocessing.py",
+        "index": 263
+      },
+      {
+        "func_name": "_check_bad_cuda_fork",
+        "docstring_summary": "Checks whether it is safe to fork and initialize CUDA in the new processes, and raises an exception if not.",
+        "path": "src\\lightning\\fabric\\strategies\\launchers\\multiprocessing.py",
+        "index": 3027
+      },
+      {
+        "func_name": "garbage_collection_cuda",
+        "docstring_summary": "Garbage collection Torch (CUDA) memory.",
+        "path": "src\\lightning\\pytorch\\utilities\\memory.py",
+        "index": 3794
+      },
+      {
+        "func_name": "garbage_collection_cuda",
+        "docstring_summary": "This is the last thing that should cause an OOM error, but seemingly it can. Only handle OOM errors",
+        "path": "src\\lightning\\pytorch\\utilities\\memory.py",
+        "index": 1362
+      },
+      {
+        "func_name": "_check_bad_cuda_fork",
+        "docstring_summary": "Checks whether it is safe to fork and initialize CUDA in the new processes, and raises an exception if not.",
+        "path": "src\\lightning\\fabric\\strategies\\launchers\\multiprocessing.py",
+        "index": 1942
+      }
+    ],
+    "scores": [
+      0.6358231899926804,
+      0.6358231899926804,
+      0.6232227866663467,
+      0.6198585689901057,
+      0.6145041401486534
+    ],
+    "latency": 0.018494844436645508,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 2,
+    "query": "Why is my validation loss not decreasing?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "check_finite_loss",
+        "docstring_summary": "Checks for finite loss value.",
+        "path": "src\\lightning\\pytorch\\loops\\utilities.py",
+        "index": 2428
+      },
+      {
+        "func_name": "check_finite_loss",
+        "docstring_summary": "Checks for finite loss value.",
+        "path": "src\\lightning\\pytorch\\loops\\utilities.py",
+        "index": 749
+      },
+      {
+        "func_name": "check_finite_loss",
+        "docstring_summary": "Checks for finite loss value.",
+        "path": "src\\lightning\\pytorch\\loops\\utilities.py",
+        "index": 3513
+      },
+      {
+        "func_name": "on_validation_model_eval",
+        "docstring_summary": "Called when the validation loop starts.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 2214
+      },
+      {
+        "func_name": "on_validation_model_train",
+        "docstring_summary": "Called when the validation loop ends.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 3300
+      }
+    ],
+    "scores": [
+      0.467893837741515,
+      0.4638585389293872,
+      0.4638585389293872,
+      0.4472765164483508,
+      0.4458301901252475
+    ],
+    "latency": 0.0071637630462646484,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 3,
+    "query": "What parameters does the Lightning Trainer accept?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "on_train_end",
+        "docstring_summary": "Called when training ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "index": 2157
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Receives as input pytorch-lightning classes (or callables which return pytorch-lightning classes), which are",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "index": 1468
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Receives as input pytorch-lightning classes (or callables which return pytorch-lightning classes), which are",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "index": 2020
+      },
+      {
+        "func_name": "instantiate_trainer",
+        "docstring_summary": "Instantiates the trainer.",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "index": 2034
+      },
+      {
+        "func_name": "connect",
+        "docstring_summary": "Called by the Trainer to connect the strategy with the model. model conversions cannot be applied at this point because `LightningModule.{setup,configure_model}` haven't run yet",
+        "path": "src\\lightning\\pytorch\\strategies\\strategy.py",
+        "index": 1590
+      }
+    ],
+    "scores": [
+      0.5181970311278373,
+      0.513998819812385,
+      0.513998819812385,
+      0.5046377832005096,
+      0.5014475348927014
+    ],
+    "latency": 0.00956869125366211,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 4,
+    "query": "How to use early stopping callback?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2598
+      },
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 919
+      },
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 3683
+      },
+      {
+        "func_name": "early_stopping_callbacks",
+        "docstring_summary": "A list of all instances of :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` found in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 920
+      },
+      {
+        "func_name": "early_stopping_callbacks",
+        "docstring_summary": "A list of all instances of :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` found in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 3684
+      }
+    ],
+    "scores": [
+      0.5714991131096536,
+      0.5593647495987275,
+      0.5593647495987275,
+      0.5324289720905069,
+      0.5324289720905069
+    ],
+    "latency": 0.006999492645263672,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 5,
+    "query": "Implement custom callback in PyTorch Lightning",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 919
+      },
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 3683
+      },
+      {
+        "func_name": "progress_bar_callback",
+        "docstring_summary": "An instance of :class:`~lightning.pytorch.callbacks.progress.progress_bar.ProgressBar` found in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 923
+      },
+      {
+        "func_name": "progress_bar_callback",
+        "docstring_summary": "An instance of :class:`~lightning.pytorch.callbacks.progress.progress_bar.ProgressBar` found in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 3687
+      },
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2598
+      }
+    ],
+    "scores": [
+      0.5886268663146903,
+      0.5886268663146903,
+      0.5719744383867672,
+      0.5719744383867672,
+      0.5679392422176027
+    ],
+    "latency": 0.010211706161499023,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 6,
+    "query": "Multi-GPU training setup",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "_parse_gpu_ids",
+        "docstring_summary": "Parses the GPU IDs given in the format as accepted by the :class:`~lightning.pytorch.trainer.trainer.Trainer`.",
+        "path": "src\\lightning\\fabric\\utilities\\device_parser.py",
+        "index": 1448
+      },
+      {
+        "func_name": "_parse_gpu_ids",
+        "docstring_summary": "Parses the GPU IDs given in the format as accepted by the :class:`~lightning.pytorch.trainer.trainer.Trainer`.",
+        "path": "src\\lightning\\fabric\\utilities\\device_parser.py",
+        "index": 1972
+      },
+      {
+        "func_name": "setup_dataloaders",
+        "docstring_summary": "r\"\"\"Set up one or multiple dataloaders for accelerated training. If you need different settings for each",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "index": 23
+      },
+      {
+        "func_name": "setup_dataloaders",
+        "docstring_summary": "r\"\"\"Set up one or multiple dataloaders for accelerated training. If you need different settings for each",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "index": 2787
+      },
+      {
+        "func_name": "_parse_gpu_ids",
+        "docstring_summary": "Parses the GPU IDs given in the format as accepted by the :class:`~lightning.pytorch.trainer.trainer.Trainer`.",
+        "path": "src\\lightning\\fabric\\utilities\\device_parser.py",
+        "index": 293
+      }
+    ],
+    "scores": [
+      0.5170315908798984,
+      0.5170315908798984,
+      0.48749739430374894,
+      0.48749739430374894,
+      0.48268582186697145
+    ],
+    "latency": 0.009517669677734375,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 7,
+    "query": "Difference between training_step and validation_step",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "enable_validation",
+        "docstring_summary": "Check if we should run validation during training.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 917
+      },
+      {
+        "func_name": "enable_validation",
+        "docstring_summary": "Check if we should run validation during training.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2596
+      },
+      {
+        "func_name": "enable_validation",
+        "docstring_summary": "Check if we should run validation during training.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 3681
+      },
+      {
+        "func_name": "on_validation_batch_end",
+        "docstring_summary": "Called in the validation loop after the batch.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 2208
+      },
+      {
+        "func_name": "on_validation_batch_end",
+        "docstring_summary": "Called in the validation loop after the batch.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 529
+      }
+    ],
+    "scores": [
+      0.5335663690040507,
+      0.5335663690040507,
+      0.5335663690040507,
+      0.5296907797420212,
+      0.5275152724977321
+    ],
+    "latency": 0.010335922241210938,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 8,
+    "query": "How does automatic optimization work?",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "_skip_backward",
+        "docstring_summary": "Determines whether the loop will skip backward during automatic optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 699
+      },
+      {
+        "func_name": "_skip_backward",
+        "docstring_summary": "Determines whether the loop will skip backward during automatic optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 2378
+      },
+      {
+        "func_name": "_skip_backward",
+        "docstring_summary": "Determines whether the loop will skip backward during automatic optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 3463
+      },
+      {
+        "func_name": "automatic_optimization",
+        "docstring_summary": "If set to ``False`` you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()``.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "index": 575
+      },
+      {
+        "func_name": "automatic_optimization",
+        "docstring_summary": "If set to ``False`` you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()``.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "index": 2254
+      }
+    ],
+    "scores": [
+      0.49022636729961944,
+      0.49022636729961944,
+      0.49022636729961944,
+      0.48555992265408143,
+      0.48555992265408143
+    ],
+    "latency": 0.008594036102294922,
+    "method": "sentence-transformer"
+  }
+]

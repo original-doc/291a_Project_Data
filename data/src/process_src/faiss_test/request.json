@@ -1,0 +1,47 @@
+[
+        {
+            "id": 1,
+            "type": "debugging",
+            "query": "How to fix CUDA out of memory error in PyTorch Lightning?"
+        },
+        {
+            "id": 2,
+            "type": "debugging",
+            "query": "Why is my validation loss not decreasing?"
+        },
+        
+        {
+            "id": 3,
+            "type": "api_usage",
+            "query": "What parameters does the Lightning Trainer accept?"
+        },
+        {
+            "id": 4,
+            "type": "api_usage",
+            "query": "How to use early stopping callback?"
+        },
+
+
+        {
+            "id": 5,
+            "type": "implementation",
+            "query": "Implement custom callback in PyTorch Lightning"
+        },
+        {
+            "id": 6,
+            "type": "implementation",
+            "query": "Multi-GPU training setup"
+        },
+
+        
+        {
+            "id": 7,
+            "type": "conceptual",
+            "query": "Difference between training_step and validation_step"
+        },
+        {
+            "id": 8,
+            "type": "conceptual",
+            "query": "How does automatic optimization work?"
+        }
+    ]
