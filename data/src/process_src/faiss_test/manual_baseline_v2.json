@@ -1,0 +1,338 @@
+{
+  "1": {
+    "query": "How to fix CUDA out of memory error in PyTorch Lightning?",
+    "query_type": "debugging",
+    "relevant_docs": [
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 606,
+        "heuristic_score": 11
+      },
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "load weights without mapping ... or load weights mapping all weights from GPU 1 to GPU 0 ... or load weights and hyperparameters from separate files. override some of the params with new values predict",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1228,
+        "heuristic_score": 11
+      },
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1525,
+        "heuristic_score": 11
+      },
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 2285,
+        "heuristic_score": 11
+      },
+      {
+        "func_name": "load_from_checkpoint",
+        "docstring_summary": "r\"\"\"Primary way of loading a model from a checkpoint. When Lightning saves a checkpoint it stores the arguments",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 3370,
+        "heuristic_score": 11
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "2": {
+    "query": "Why is my validation loss not decreasing?",
+    "query_type": "debugging",
+    "relevant_docs": [
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 586,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "if you have one val dataloader: if you have multiple val dataloaders: CASE 1: A single validation dataset implement your own log 6 example images or generated text... or whatever calculate acc log the outputs! CASE 2: multiple validation dataloaders datalo",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1215,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1512,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 2265,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 3350,
+        "heuristic_score": 6
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "3": {
+    "query": "What parameters does the Lightning Trainer accept?",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "sanitize_parameters_to_prune",
+        "docstring_summary": "This function is responsible of sanitizing ``parameters_to_prune`` and ``parameter_names``. If",
+        "path": "src\\lightning\\pytorch\\callbacks\\pruning.py",
+        "doc_index": 464,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "sanitize_parameters_to_prune",
+        "docstring_summary": "This function is responsible of sanitizing ``parameters_to_prune`` and ``parameter_names``. If",
+        "path": "src\\lightning\\pytorch\\callbacks\\pruning.py",
+        "doc_index": 2143,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "sanitize_parameters_to_prune",
+        "docstring_summary": "This function is responsible of sanitizing ``parameters_to_prune`` and ``parameter_names``. If",
+        "path": "src\\lightning\\pytorch\\callbacks\\pruning.py",
+        "doc_index": 3228,
+        "heuristic_score": 6
+      },
+      {
+        "func_name": "add_lightning_class_args",
+        "docstring_summary": "Adds arguments from a lightning class to a nested key of the parser.",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "doc_index": 337,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Receives as input pytorch-lightning classes (or callables which return pytorch-lightning classes), which are",
+        "path": "src\\lightning\\pytorch\\cli.py",
+        "doc_index": 341,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "4": {
+    "query": "How to use early stopping callback?",
+    "query_type": "api_usage",
+    "relevant_docs": [
+      {
+        "func_name": "_run_early_stopping_check",
+        "docstring_summary": "Checks whether the early stopping condition is met and if so tells the trainer to stop the training.",
+        "path": "src\\lightning\\pytorch\\callbacks\\early_stopping.py",
+        "doc_index": 427,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "transfer_batch_to_device",
+        "docstring_summary": "Override this hook if your :class:`~torch.utils.data.DataLoader` returns tensors wrapped in a custom data",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "doc_index": 562,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "log",
+        "docstring_summary": "Log a key, value pair.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 581,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "early_stopping_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "doc_index": 919,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "early_stopping_callbacks",
+        "docstring_summary": "A list of all instances of :class:`~lightning.pytorch.callbacks.early_stopping.EarlyStopping` found in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "doc_index": 920,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "5": {
+    "query": "Implement custom callback in PyTorch Lightning",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"Implements the Stochastic Weight Averaging (SWA) Callback to average a model.",
+        "path": "src\\lightning\\pytorch\\callbacks\\stochastic_weight_avg.py",
+        "doc_index": 465,
+        "heuristic_score": 7
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"Customize every aspect of training via flags.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "doc_index": 904,
+        "heuristic_score": 7
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "remove version if accidentally passed opt-outs opt-ins set the opt-out defaults init connectors init loops init callbacks Declare attributes to be set in _callback_connector on_trainer_init init data flags gradient clipping configure profiler init logger f",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "doc_index": 1309,
+        "heuristic_score": 7
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"Customize every aspect of training via flags.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "doc_index": 1606,
+        "heuristic_score": 7
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "r\"\"\"Implements the Stochastic Weight Averaging (SWA) Callback to average a model.",
+        "path": "src\\lightning\\pytorch\\callbacks\\stochastic_weight_avg.py",
+        "doc_index": 2144,
+        "heuristic_score": 7
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "6": {
+    "query": "Multi-GPU training setup",
+    "query_type": "implementation",
+    "relevant_docs": [
+      {
+        "func_name": "setup",
+        "docstring_summary": "r\"\"\"Set up a model and its optimizers for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "doc_index": 20,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_module",
+        "docstring_summary": "r\"\"\"Set up a model for accelerated training or inference.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "doc_index": 21,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_optimizers",
+        "docstring_summary": "r\"\"\"Set up one or more optimizers for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "doc_index": 22,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "setup_dataloaders",
+        "docstring_summary": "r\"\"\"Set up one or multiple dataloaders for accelerated training. If you need different settings for each",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "doc_index": 23,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "_setup_dataloader",
+        "docstring_summary": "r\"\"\"Set up a single dataloader for accelerated training.",
+        "path": "src\\lightning\\fabric\\fabric.py",
+        "doc_index": 24,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "7": {
+    "query": "Difference between training_step and validation_step",
+    "query_type": "conceptual",
+    "relevant_docs": [
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 586,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "if you have one val dataloader: if you have multiple val dataloaders: CASE 1: A single validation dataset implement your own log 6 example images or generated text... or whatever calculate acc log the outputs! CASE 2: multiple validation dataloaders datalo",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1215,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 1512,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 2265,
+        "heuristic_score": 5
+      },
+      {
+        "func_name": "validation_step",
+        "docstring_summary": "r\"\"\"Operates on a single batch of data from the validation set. In this step you'd might generate examples or",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 3350,
+        "heuristic_score": 5
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  },
+  "8": {
+    "query": "How does automatic optimization work?",
+    "query_type": "conceptual",
+    "relevant_docs": [
+      {
+        "func_name": "automatic_optimization",
+        "docstring_summary": "If set to ``False`` you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()``.",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "doc_index": 575,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "_configure_schedulers_automatic_opt",
+        "docstring_summary": "Convert each scheduler into `LRSchedulerConfig` with relevant information, when using automatic optimization.",
+        "path": "src\\lightning\\pytorch\\core\\optimizer.py",
+        "doc_index": 611,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Runs a single training batch.",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "doc_index": 740,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "_configure_schedulers_automatic_opt",
+        "docstring_summary": "check provided keys",
+        "path": "src\\lightning\\pytorch\\core\\optimizer.py",
+        "doc_index": 1231,
+        "heuristic_score": 4
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Go back and finish running validation Avoid running validation again if we saved on last fast forward progress counters to end of validation we are going to train first so the val loop does not need to restart hook's batch_idx and dataloader_idx arguments ",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "doc_index": 1268,
+        "heuristic_score": 4
+      }
+    ],
+    "notes": "Automatic heuristic baseline"
+  }
+}
