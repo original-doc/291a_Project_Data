@@ -21,6 +21,7 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 # GraphCodeBERT
 import torch
 from transformers import AutoTokenizer, AutoModel
+import rank_bm25
 
 # BM25 for hybrid search
 try:
@@ -504,10 +505,17 @@ def create_test_queries() -> List[Dict]:
         {"id": 8, "type": "conceptual", "query": "How does automatic optimization work?"},
     ]
 
+def load_test_queries(queries_file: Path = None) -> List[Dict]:
+    """Load test queries from file or create default set"""
+    if queries_file and queries_file.exists():
+        with open(queries_file, 'r') as f:
+            return json.load(f)
+
 def main():
     parser = argparse.ArgumentParser(description="Improved Qdrant + GraphCodeBERT retrieval")
     parser.add_argument('dataset_path', help="Path to dataset JSON")
     parser.add_argument('--output-dir', default='retrieval_results_improved')
+    parser.add_argument('--queries', help="Path to test queries JSON file")
     parser.add_argument('--max-docs', type=int, help="Max documents to load")
     parser.add_argument('--qdrant-url', default='http://localhost:6333')
     parser.add_argument('--collection', default='pytorch_lightning_graphcodebert')
@@ -550,8 +558,14 @@ def main():
     print("\n" + "="*70)
     print("🔍 RUNNING TEST QUERIES")
     print("="*70)
-    
-    test_queries = create_test_queries()
+
+    # Load queries
+    queries_file = Path(args.queries) if args.queries else None
+    # print(f"queries_file: {queries_file}")
+    if queries_file:
+        test_queries = load_test_queries(queries_file)
+    else:
+        test_queries = create_test_queries()
     results = []
     
     for query_data in test_queries:

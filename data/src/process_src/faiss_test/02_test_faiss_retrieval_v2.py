@@ -431,10 +431,17 @@ def create_test_queries() -> List[Dict]:
     
     return queries
 
+def load_test_queries(queries_file: Path = None) -> List[Dict]:
+    """Load test queries from file or create default set"""
+    if queries_file and queries_file.exists():
+        with open(queries_file, 'r') as f:
+            return json.load(f)
+
 def main():
     parser = argparse.ArgumentParser(description="Test FAISS retrieval on PyTorch Lightning dataset (NEW SCHEMA)")
     parser.add_argument('dataset_path', help="Path to JSON dataset file (filtered_data.json)")
     parser.add_argument('--output-dir', default='faiss_results_v2', help="Output directory")
+    parser.add_argument('--queries', help="Path to test queries JSON file")
     parser.add_argument('--max-docs', type=int, help="Maximum documents to load (for testing)")
     parser.add_argument('--embedding', default='sentence-transformer', 
                        choices=['sentence-transformer', 'tfidf'],
@@ -477,7 +484,13 @@ def main():
     print("Running Test Queries")
     print("="*70)
     
-    test_queries = create_test_queries()
+    # Load queries
+    queries_file = Path(args.queries) if args.queries else None
+    # print(f"queries_file: {queries_file}")
+    if queries_file:
+        test_queries = load_test_queries(queries_file)
+    else:
+        test_queries = create_test_queries()
     results = []
     
     for query_data in test_queries:
