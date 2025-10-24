@@ -1,0 +1,7 @@
+{
+  "embedding_method": "sentence-transformer",
+  "dimension": 384,
+  "num_documents": 3849,
+  "index_type": "IndexFlatL2",
+  "schema_version": "v2_structured_text"
+}

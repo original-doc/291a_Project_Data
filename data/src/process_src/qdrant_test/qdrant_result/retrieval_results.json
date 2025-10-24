@@ -1,0 +1,370 @@
+[
+  {
+    "query_id": 1,
+    "query": "How to fix CUDA out of memory error in PyTorch Lightning?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1611
+      },
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2589
+      },
+      {
+        "func_name": "launch",
+        "docstring_summary": "Launches processes that run the given function in parallel.",
+        "path": "src\\lightning\\pytorch\\strategies\\launchers\\xla.py",
+        "index": 1601
+      },
+      {
+        "func_name": "launch",
+        "docstring_summary": "Launches processes that run the given function in parallel.",
+        "path": "src\\lightning\\pytorch\\strategies\\launchers\\xla.py",
+        "index": 2574
+      },
+      {
+        "func_name": "launch",
+        "docstring_summary": "Launches processes that run the given function in parallel.",
+        "path": "src\\lightning\\pytorch\\strategies\\launchers\\multiprocessing.py",
+        "index": 2568
+      }
+    ],
+    "scores": [
+      0.8663115,
+      0.8663115,
+      0.8599889,
+      0.8599889,
+      0.8592422
+    ],
+    "latency": 0.06405353546142578,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 2,
+    "query": "Why is my validation loss not decreasing?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "done",
+        "docstring_summary": "early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1266
+      },
+      {
+        "func_name": "num_sanity_val_batches",
+        "docstring_summary": "re-compute the `min` in case this is called outside the sanity-checking stage",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1316
+      },
+      {
+        "func_name": "num_val_batches",
+        "docstring_summary": "if no trainer.fn is set, assume fit's validation use the protected access, because it shouldn't return the sanity_val batches",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1317
+      },
+      {
+        "func_name": "init_validation_tqdm",
+        "docstring_summary": "The train progress bar doesn't exist in `trainer.validate()`",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\tqdm_progress.py",
+        "index": 1197
+      },
+      {
+        "func_name": "__init__",
+        "docstring_summary": "Attributes:",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 554
+      }
+    ],
+    "scores": [
+      0.8788139,
+      0.87628305,
+      0.875188,
+      0.8750346,
+      0.8723351
+    ],
+    "latency": 0.017189502716064453,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 3,
+    "query": "What parameters does the Lightning Trainer accept?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2589
+      },
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1611
+      },
+      {
+        "func_name": "launch",
+        "docstring_summary": "Launches processes that run the given function in parallel.",
+        "path": "src\\lightning\\pytorch\\strategies\\launchers\\multiprocessing.py",
+        "index": 2568
+      },
+      {
+        "func_name": "launch",
+        "docstring_summary": "Launches processes that run the given function in parallel.",
+        "path": "src\\lightning\\pytorch\\strategies\\launchers\\multiprocessing.py",
+        "index": 1598
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Performs the training step for manual optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\optimization\\manual.py",
+        "index": 2443
+      }
+    ],
+    "scores": [
+      0.80401385,
+      0.80401385,
+      0.7997838,
+      0.7997838,
+      0.7965524
+    ],
+    "latency": 0.0393984317779541,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 4,
+    "query": "How to use early stopping callback?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "done",
+        "docstring_summary": "early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1266
+      },
+      {
+        "func_name": "_register_external_accelerators_and_strategies",
+        "docstring_summary": "TODO: Prevent registering multiple times",
+        "path": "src\\lightning\\pytorch\\trainer\\connectors\\accelerator_connector.py",
+        "index": 1324
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "Evaluates when to leave the loop. early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 2417
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "Evaluates when to leave the loop. early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1563
+      },
+      {
+        "func_name": "on_run_end",
+        "docstring_summary": "if `done` returned True before any iterations were done, this won't have been called in `on_advance_end` hook include any logged outputs on epoch_end log metrics hook enable train mode again",
+        "path": "src\\lightning\\pytorch\\loops\\evaluation_loop.py",
+        "index": 1253
+      }
+    ],
+    "scores": [
+      0.906995,
+      0.89718914,
+      0.8913349,
+      0.8913349,
+      0.88730156
+    ],
+    "latency": 0.01844310760498047,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 5,
+    "query": "Implement custom callback in PyTorch Lightning",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "creates_processes_externally",
+        "docstring_summary": "LSF creates subprocesses, i.e., PyTorch Lightning does not need to spawn them.",
+        "path": "src\\lightning\\fabric\\plugins\\environments\\lsf.py",
+        "index": 2896
+      },
+      {
+        "func_name": "creates_processes_externally",
+        "docstring_summary": "LSF creates subprocesses, i.e., PyTorch Lightning does not need to spawn them.",
+        "path": "src\\lightning\\fabric\\plugins\\environments\\lsf.py",
+        "index": 132
+      },
+      {
+        "func_name": "creates_processes_externally",
+        "docstring_summary": "LSF creates subprocesses, i.e., PyTorch Lightning does not need to spawn them.",
+        "path": "src\\lightning\\fabric\\plugins\\environments\\lsf.py",
+        "index": 1811
+      },
+      {
+        "func_name": "_torchrun_launch",
+        "docstring_summary": "This will invoke `torchrun` programmatically to launch the given script in new processes. set a good default number of threads for OMP to avoid warnings being emitted to the user",
+        "path": "src\\lightning\\fabric\\cli.py",
+        "index": 1684
+      },
+      {
+        "func_name": "_torchrun_launch",
+        "docstring_summary": "This will invoke `torchrun` programmatically to launch the given script in new processes. set a good default number of threads for OMP to avoid warnings being emitted to the user",
+        "path": "src\\lightning\\fabric\\cli.py",
+        "index": 1382
+      }
+    ],
+    "scores": [
+      0.8788096,
+      0.8788096,
+      0.8788096,
+      0.8749306,
+      0.8749306
+    ],
+    "latency": 0.026961803436279297,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 6,
+    "query": "Multi-GPU training setup",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "training_step",
+        "docstring_summary": "Multiple optimizers (e.g.: GANs) do training_step with encoder do training_step with decoder",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "index": 1214
+      },
+      {
+        "func_name": "val_dataloader",
+        "docstring_summary": "MNIST val set uses a subset of the training set for validation.",
+        "path": "src\\lightning\\pytorch\\demos\\mnist_datamodule.py",
+        "index": 3390
+      },
+      {
+        "func_name": "val_dataloader",
+        "docstring_summary": "MNIST val set uses a subset of the training set for validation.",
+        "path": "src\\lightning\\pytorch\\demos\\mnist_datamodule.py",
+        "index": 2305
+      },
+      {
+        "func_name": "val_dataloader",
+        "docstring_summary": "MNIST val set uses a subset of the training set for validation.",
+        "path": "src\\lightning\\pytorch\\demos\\mnist_datamodule.py",
+        "index": 626
+      },
+      {
+        "func_name": "estimated_stepping_batches",
+        "docstring_summary": "infinite training iterable dataset",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1318
+      }
+    ],
+    "scores": [
+      0.74425644,
+      0.74237263,
+      0.74237263,
+      0.74237263,
+      0.74150145
+    ],
+    "latency": 0.03038191795349121,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 7,
+    "query": "Difference between training_step and validation_step",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "init_validation_tqdm",
+        "docstring_summary": "The train progress bar doesn't exist in `trainer.validate()`",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\tqdm_progress.py",
+        "index": 1197
+      },
+      {
+        "func_name": "num_val_batches",
+        "docstring_summary": "if no trainer.fn is set, assume fit's validation use the protected access, because it shouldn't return the sanity_val batches",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1317
+      },
+      {
+        "func_name": "on_run_end",
+        "docstring_summary": "if `done` returned True before any iterations were done, this won't have been called in `on_advance_end` hook include any logged outputs on epoch_end log metrics hook enable train mode again",
+        "path": "src\\lightning\\pytorch\\loops\\evaluation_loop.py",
+        "index": 1253
+      },
+      {
+        "func_name": "estimated_stepping_batches",
+        "docstring_summary": "infinite training iterable dataset",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1318
+      },
+      {
+        "func_name": "on_run_end",
+        "docstring_summary": "Runs the ``_on_evaluation_epoch_end`` hook. if `done` returned True before any iterations were done, this won't have been called in `on_advance_end` hook include any logged outputs on epoch_end log metrics hook enable train mode again",
+        "path": "src\\lightning\\pytorch\\loops\\evaluation_loop.py",
+        "index": 1550
+      }
+    ],
+    "scores": [
+      0.8910651,
+      0.88998824,
+      0.8869219,
+      0.8867732,
+      0.88625216
+    ],
+    "latency": 0.01572442054748535,
+    "method": "graphcodebert"
+  },
+  {
+    "query_id": 8,
+    "query": "How does automatic optimization work?",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "on_run_end",
+        "docstring_summary": "reset logic around the optimizer step",
+        "path": "src\\lightning\\pytorch\\loops\\optimization\\manual.py",
+        "index": 1277
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1266
+      },
+      {
+        "func_name": "_should_accumulate",
+        "docstring_summary": "Lightning steps on the final batch but the strategy might not",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1269
+      },
+      {
+        "func_name": "_register_external_accelerators_and_strategies",
+        "docstring_summary": "TODO: Prevent registering multiple times",
+        "path": "src\\lightning\\pytorch\\trainer\\connectors\\accelerator_connector.py",
+        "index": 1324
+      },
+      {
+        "func_name": "sized_len",
+        "docstring_summary": "try getting the length",
+        "path": "src\\lightning\\fabric\\utilities\\data.py",
+        "index": 1143
+      }
+    ],
+    "scores": [
+      0.88319945,
+      0.87921363,
+      0.8790101,
+      0.87872434,
+      0.8749043
+    ],
+    "latency": 0.02826523780822754,
+    "method": "graphcodebert"
+  }
+]
