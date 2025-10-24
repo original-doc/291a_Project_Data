@@ -1,0 +1,719 @@
+[
+  {
+    "title": "DDP training and storing rank specific info in checkpoints",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/21097",
+    "createdAt": "2025-08-19T16:56:02Z",
+    "updatedAt": "2025-08-26T16:11:20Z",
+    "bodyText": "I'm working on preserving state between start/stop of training runs in a manner that guarantees reproducible results. That is, I'd like to be able to stop my training at any given checkpoint, then restart the training from that checkpoint and finish to completion, and have these results match (exactly) the results obtained from a single continuous run. I've been able to do this on single node setups by storing the outputs of\n\ntorch.get_rng_state()\ntorch.cuda.get_rng_state()\nnp.random.get_state()\nrandom.getstate()\n\nwithin the model checkpoint, and using the corresponding set method upon loading the checkpoint. I've been performing the save/load routines within a custom pytorch_lightning.callbacks.Callback by overriding the on_save_checkpoint and on_load_checkpoint appropriately.\nI'm now trying to perform the same checkpoint save/load procedure using a multi-node setup, with a DDP strategy. My attempt was to append the global-rank-specific rng states to the checkpoint dictionary, which I had thought would then be saved appropriately. However, when I executed the code, the only rng state that is preserved within the checkpoint dictionary, is the rank 0 state. Can someone please advise on how to preserve the rng states from other ranks within the checkpoint in a DDP setup? As a higher level question: if there is a better way to preserve these states between training runs rather than checkpoint storage and re-instantiation, that information would also be welcome.\nThe main Callback save routine I'm using is posted below. I've then been checking the contents of the saved checkpoint dictionary by using a manual torch.load() call.\npython version: 3.9.12\npytorch version: 2.2.0+cu121\npytorch_lightning version: 2.2.0\nclass CustomCallback(ptl.callbacks.Callback):\n    def on_save_checkpoint(self, trainer, module, checkpoint):\n        # get random states\n        state = {\n            'torch': torch.get_rng_state().cpu(),\n            'cuda': torch.cuda.get_rng_state().cpu() if torch.cuda.is_available() else None,\n            'numpy': np.random.get_state(),\n            'random': random.getstate(),\n        }\n        rank = trainer.global_rank\n        checkpoint[f'state_{rank}'] = state.  # note: this key never appears in the saved checkpoint except for rank 0\n\n        # note: this code *does* execute, I do see the saved data for each rank, \n        # but I'd rather store it cleanly in the checkpoint file\n        torch.save(state, f'rng_state_{rank}.pt')\n\n    def on_load_checkpoint(self, trainer, module, checkpoint):\n        # pass for now, easy enough to update if I get the on_save_ method working appropriately\n        pass",
+    "answerChosenAt": "2025-08-26T16:11:21Z",
+    "answer": {
+      "author": {
+        "login": "bardsleypt"
+      },
+      "bodyText": "After extensive doc-searching and even more extensive trial-and-error, I believe I have a good understanding of this issue.  Unfortunately, unless there is a flag within pytorch, ddp, lightning, or CUDA governing GPU scheduling determinism that I don't know about, my main problem of forcing exact reproducibility seems impossible (or at least largely impractical) for reasons I'll summarize below. I am moving on from this problem, by simply avoiding the model stop/restart process I mentioned above via other methods. But I'm posting the information I have discovered in case it helps anyone with a similar problem.\nFor starters, my second comment is more-or-less correct. Each rank (i.e., each process) gets its own instantiation of the entire training run (thus all object instantiations including trainers, dataloaders, callbacks, etc.), but under the hood ddp + lightning is only letting a given process see a subset of the training data. During a single batch on a given rank, the data is put through the forward pass of the lightning module, after which the backward pass is called. The backward pass computes gradients locally (on the given rank/process) but crucially as soon as the backward pass completes, an all-reduce routine is called deep within the ddp + lightning source code to aggregate and synchronize all gradients across all ranks. This way, when it is time to make the optimization step, all processes have the same gradient values (i.e., the mean of the gradients over all ranks).\nI was able to determine the gradients are the first location I encountered a discrepancy between a continuous training run and a run that involved a stop-checkpoint-restart at a given epoch (epoch 3 in my case). At this breakpoint, the two training runs had different gradients going into the next optimization step (epoch 3 update step), where the discrepancy was O(10^-11). After a lot of additional model hacking to debug the local gradients across each rank, I determined this discrepancy came purely from the order in which the gradients are synchronized (i.e., floating point arithmetic does not obey commutativity of addition perfectly). For example, on the continuous training run with 4 ranks (GPUs), the gradients were aggregated in an order [0, 1, 2, 3], while on the restarted training run the gradients were aggregated in an order [1, 2, 3, 0] (or possibly a similar ordering, but certainly not the same order). I verified this by manually combining all of the local gradients from the restarted training run in different orders until I was able to reproduce the aggregated gradient from both the continuous training run and the restarted training run. That is, I could get different aggregated gradient values purely from the order in which I performed the addition/averaging of the local gradients, one corresponding to the restarted run and another corresponding to the continuous run. This indicated to me that the order in which the GPUs are aggregating their gradients is not the same between my two training runs, though it is still deterministic (i.e., the restarted training run always gave the same discrepancy from the continuous training run).\nShort of controlling the exact scheduling of GPU processes, and/or rewriting my model code to perform the aggregation/optimization steps manually, it seems exact reproducibility between these two runs is not possible. If anyone does stumble across this and has more information and better ideas on this, I'd be happy to learn more here.\nDebugging local gradients\nHere is little more information for anyone encountering similar problems. These are the steps I had to take within my lightning module and training code to debug and output the local (i.e., per process or per rank) gradients. I didn't find this process all that intuitive nor well-documented, so hopefully this helps someone.\nThe synchronization of the gradients happens almost immediately in the training process, and is handled using some form of  hook/observer/subscriber pattern. I'm not sure the specifics here, but it is definitely opaque to the high-level pytorch-lightning user. This means by the time one is at a callback such as on_before_optimizer_step or even on_after_backward, the gradients have already been synchronized and the local gradients are lost. To access the local gradients then, one needs to compute them in a manual fashion without the mentioned synchornization hook in place, store them, and then output them whenever convenient. Here is my approach:\nclass MyModel(ptl.LightningModule):\n    def __init__(self, *args, **kwargs):\n        ...\n        self.automatic_optimization = False     # this allows calls to manual_backwards() but changes the train_step functionality\n        self.local_grads = [] # storage of local gradients\n\n    def training_step(self, batch, batch_idx):\n        ...\n       loss = self.forward(*args, **kwargs)\n        \n        with self.trainer.strategy.model.no_sync():  # prevents immediate aggregation of gradients \n            self.manual_backward(loss, retain_graph=True).   # debug backward pass to populate local gradients\n            self.local_grads = [p.grad.clone().detach() if p.grad is not None else None for p in self.parameters()]\n\n        opt = self.optimizers()\n        opt.zero_grad()  # clear any/all gradients from non-synced step above\n        self.manual_backward(loss)  # actual backward pass used for gradients in optimization step\n        opt.zero_grad()\n        opt.step()\n        \n        return loss\n\nOnce the local gradients are cloned, detached, and stored inside of local_grads, they can be accessed from any of the various callbacks (either lightning-module callback hooks or lighting-callback hooks). Since the object is instantiated on each rank/process, each rank/process will store its own copy of the local gradients. In this manner, I was able to pull the local gradients together (after saving them to disk) for each rank, and reassemble them in different orders to achieve slightly varying aggregated gradient values."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "bardsleypt"
+          },
+          "bodyText": "I believe I have at least narrowed down why my approach is not working:\n\nThe CustomCallback is instantiated on each process (i.e., each rank)\nThe per-process-checkpoint-dictionary is updated on its own process with its corresponding rank information\nThe only checkpoint that is saved is the so-called \"global-zero\" process\n\nThis at least explains why I only see the rank-0 information in the saved checkpoint. So my question can now be reduced to:\nIs there any way to synchronize and otherwise send the checkpoint dictionaries for each rank to the global-0 process?\nAs a workaround, I can do some pretty hacky temporary-save and load routines in the on_save_checkpoint method, but I'd prefer a cleaner way if anyone has any suggestions."
+        },
+        {
+          "author": {
+            "login": "bardsleypt"
+          },
+          "bodyText": "After extensive doc-searching and even more extensive trial-and-error, I believe I have a good understanding of this issue.  Unfortunately, unless there is a flag within pytorch, ddp, lightning, or CUDA governing GPU scheduling determinism that I don't know about, my main problem of forcing exact reproducibility seems impossible (or at least largely impractical) for reasons I'll summarize below. I am moving on from this problem, by simply avoiding the model stop/restart process I mentioned above via other methods. But I'm posting the information I have discovered in case it helps anyone with a similar problem.\nFor starters, my second comment is more-or-less correct. Each rank (i.e., each process) gets its own instantiation of the entire training run (thus all object instantiations including trainers, dataloaders, callbacks, etc.), but under the hood ddp + lightning is only letting a given process see a subset of the training data. During a single batch on a given rank, the data is put through the forward pass of the lightning module, after which the backward pass is called. The backward pass computes gradients locally (on the given rank/process) but crucially as soon as the backward pass completes, an all-reduce routine is called deep within the ddp + lightning source code to aggregate and synchronize all gradients across all ranks. This way, when it is time to make the optimization step, all processes have the same gradient values (i.e., the mean of the gradients over all ranks).\nI was able to determine the gradients are the first location I encountered a discrepancy between a continuous training run and a run that involved a stop-checkpoint-restart at a given epoch (epoch 3 in my case). At this breakpoint, the two training runs had different gradients going into the next optimization step (epoch 3 update step), where the discrepancy was O(10^-11). After a lot of additional model hacking to debug the local gradients across each rank, I determined this discrepancy came purely from the order in which the gradients are synchronized (i.e., floating point arithmetic does not obey commutativity of addition perfectly). For example, on the continuous training run with 4 ranks (GPUs), the gradients were aggregated in an order [0, 1, 2, 3], while on the restarted training run the gradients were aggregated in an order [1, 2, 3, 0] (or possibly a similar ordering, but certainly not the same order). I verified this by manually combining all of the local gradients from the restarted training run in different orders until I was able to reproduce the aggregated gradient from both the continuous training run and the restarted training run. That is, I could get different aggregated gradient values purely from the order in which I performed the addition/averaging of the local gradients, one corresponding to the restarted run and another corresponding to the continuous run. This indicated to me that the order in which the GPUs are aggregating their gradients is not the same between my two training runs, though it is still deterministic (i.e., the restarted training run always gave the same discrepancy from the continuous training run).\nShort of controlling the exact scheduling of GPU processes, and/or rewriting my model code to perform the aggregation/optimization steps manually, it seems exact reproducibility between these two runs is not possible. If anyone does stumble across this and has more information and better ideas on this, I'd be happy to learn more here.\nDebugging local gradients\nHere is little more information for anyone encountering similar problems. These are the steps I had to take within my lightning module and training code to debug and output the local (i.e., per process or per rank) gradients. I didn't find this process all that intuitive nor well-documented, so hopefully this helps someone.\nThe synchronization of the gradients happens almost immediately in the training process, and is handled using some form of  hook/observer/subscriber pattern. I'm not sure the specifics here, but it is definitely opaque to the high-level pytorch-lightning user. This means by the time one is at a callback such as on_before_optimizer_step or even on_after_backward, the gradients have already been synchronized and the local gradients are lost. To access the local gradients then, one needs to compute them in a manual fashion without the mentioned synchornization hook in place, store them, and then output them whenever convenient. Here is my approach:\nclass MyModel(ptl.LightningModule):\n    def __init__(self, *args, **kwargs):\n        ...\n        self.automatic_optimization = False     # this allows calls to manual_backwards() but changes the train_step functionality\n        self.local_grads = [] # storage of local gradients\n\n    def training_step(self, batch, batch_idx):\n        ...\n       loss = self.forward(*args, **kwargs)\n        \n        with self.trainer.strategy.model.no_sync():  # prevents immediate aggregation of gradients \n            self.manual_backward(loss, retain_graph=True).   # debug backward pass to populate local gradients\n            self.local_grads = [p.grad.clone().detach() if p.grad is not None else None for p in self.parameters()]\n\n        opt = self.optimizers()\n        opt.zero_grad()  # clear any/all gradients from non-synced step above\n        self.manual_backward(loss)  # actual backward pass used for gradients in optimization step\n        opt.zero_grad()\n        opt.step()\n        \n        return loss\n\nOnce the local gradients are cloned, detached, and stored inside of local_grads, they can be accessed from any of the various callbacks (either lightning-module callback hooks or lighting-callback hooks). Since the object is instantiated on each rank/process, each rank/process will store its own copy of the local gradients. In this manner, I was able to pull the local gradients together (after saving them to disk) for each rank, and reassemble them in different orders to achieve slightly varying aggregated gradient values."
+        }
+      ]
+    }
+  },
+  {
+    "title": "Dynamically Setting out_dim Based on LightningDataModule in LightningCLI",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/20602",
+    "createdAt": "2025-02-25T17:37:12Z",
+    "updatedAt": "2025-02-26T23:00:02Z",
+    "bodyText": "Dynamically Setting out_dim Based on LightningDataModule in LightningCLI\nHi all,\nI\u2019m looking for a way to dynamically set the out_dim parameter in my LightningModule. Currently, this is passed explicitly via the command line, but I want to avoid that and instead have it automatically set based on the num_of_labels from the LightningDataModule. The problem is that num_of_labels is determined inside the setup method of the DataModule, not during its initialization.\nI tried using link_arguments to link the num_of_labels from the DataModule to the out_dim in the LightningModule, but it doesn\u2019t seem to work for this use case.\nI\u2019ve created a minimal example of the code below to illustrate the issue:\nNote :  num_of_labels can only be determined in setup method of the datamodule in below case, and not in constructor.\nimport torch\nfrom lightning.pytorch import LightningDataModule, LightningModule\nimport torch.nn.functional as F\nfrom lightning.pytorch.cli import LightningCLI\nfrom torch.utils.data import DataLoader, TensorDataset\n\n\nclass MyLightningDataModule(LightningDataModule):\n    def __init__(self):\n        super().__init__()\n        self._num_of_labels = None\n        self._feature_vector_size = None\n\n    def prepare_data(self):\n        pass\n\n    def setup(self, stage=None):\n        self._num_of_labels = 10\n        self._feature_vector_size = 20\n\n    @property\n    def num_of_labels(self):\n        return self._num_of_labels\n\n    @property\n    def feature_vector_size(self):\n        return self._feature_vector_size\n\n    def train_dataloader(self):\n        assert self.feature_vector_size is not None, \"feature_vector_size must be set\"\n        # Dummy dataset for example purposes\n        x = torch.randn(100, self.feature_vector_size)\n        y = torch.randn(100, self._num_of_labels)\n        dataset = TensorDataset(x, y)\n        return DataLoader(dataset, batch_size=32)\n\n\nclass MyLightningModel(LightningModule):\n    def __init__(self, input_dim: int, out_dim: int):\n        super().__init__()\n        self.save_hyperparameters()\n        assert out_dim is not None, \"out_dim must be set\"\n        assert input_dim is not None, \"input_dim must be set\"\n        # self.fc1 = torch.nn.Linear(20, 10)\n        self.fc1 = torch.nn.Linear(input_dim, out_dim)\n\n    def configure_optimizers(self):\n        return torch.optim.Adam(self.parameters(), lr=1e-3)\n\n    def forward(self, x):\n        return self.fc1(x)\n\n    def training_step(self, batch, batch_idx):\n        x, y = batch\n        loss = F.mse_loss(self.forward(x), y)\n        self.log(\"train_loss\", loss)\n        return loss\n\n\nclass MyCLI(LightningCLI):\n    def add_arguments_to_parser(self, parser):\n        parser.link_arguments('data.num_of_labels', 'model.out_dim', apply_on='instantiate')\n        parser.link_arguments(\"data.feature_vector_size\", \"model.input_dim\", apply_on=\"instantiate\")\n\n        parser.link_arguments(\n            \"data.num_of_labels\", \"trainer.callbacks.init_args.num_labels\", apply_on=\"instantiate\"\n        )\n\n        # Further I need `num_of_labels` for `torchmetrics.MetricCollection`, commented as of now\n        # command: fit --model.train_metrics=\"path_to_yaml_file\"\n        # for kind in (\"train\", \"val\", \"test\"):\n        #     for average in (\"micro-f1\", \"macro-f1\"):\n        #         parser.link_arguments(\n        #             'data.num_of_labels',\n        #             f\"model.init_args.{kind}_metrics.init_args.metrics.{average}.init_args.num_labels\",\n        #             apply_on=\"instantiate\"\n        #         )\n\n\nif __name__ == '__main__':\n    cli = MyCLI(MyLightningModel, MyLightningDataModule,)\nAs you can see, I\u2019m trying to use link_arguments to link num_of_labels to out_dim, but since num_of_labels is determined in the setup method (not the constructor), I\u2019m running into issues.\nHas anyone encountered a similar situation or found a way to dynamically set the out_dim based on the data module? Is there a better way to achieve this, or am I missing something?\nAny feedback or suggestions would be greatly appreciated!\nThanks in advance!\nEnvironment\n\nPyTorch Lightning: 2.1.2\nPython: 3.10.14\nTorch: 2.5.1\njsonargparse: 4.31.0",
+    "answerChosenAt": "2025-02-26T22:59:33Z",
+    "answer": {
+      "author": {
+        "login": "mauvilsa"
+      },
+      "bodyText": "You have two options:\n\n[preferred] In the data module, change the setup method so that if it is called multiple time, only the first run does the required logic. Then change the num_of_labels property so that it calls setup before accessing the _num_of_labels attribute.\nCreate a link applied on instantiation with source the entire data instance (instead of an attribute of it) and a compute_fn that first runs setup and then accesses the num_of_labels property."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "You have two options:\n\n[preferred] In the data module, change the setup method so that if it is called multiple time, only the first run does the required logic. Then change the num_of_labels property so that it calls setup before accessing the _num_of_labels attribute.\nCreate a link applied on instantiation with source the entire data instance (instead of an attribute of it) and a compute_fn that first runs setup and then accesses the num_of_labels property."
+        }
+      ]
+    }
+  },
+  {
+    "title": "Avoid deepspeed plugin converting the whole model",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/20543",
+    "createdAt": "2025-01-11T01:26:45Z",
+    "updatedAt": "2025-01-11T07:13:36Z",
+    "bodyText": "I am using deepspeed plugin in lightning to train my model. I want the first part of my model to be float32, while the second part to be bfloat16 (the optimizer only trains the first part). However, I found lightning will convert the whole model to float32 if I do not specify the precision. How to keep my pre-defined model dtype untouched?",
+    "answerChosenAt": "2025-01-11T07:13:36Z",
+    "answer": {
+      "author": {
+        "login": "Boltzmachine"
+      },
+      "bodyText": "I found you should implement the dtype conversion in your LightningModule, and avoid DeepSpeedStrategy from converting your module.\nfrom lightning.pytorch.plugins import DeepSpeedPrecision\nfrom lightning.pytorch.strategies import DeepSpeedStrategy\nfrom typing_extensions import override\n\nclass DeepSpeedPrecisionWithoutModuleConversion(DeepSpeedPrecision):\n    @override\n    def convert_module(self, module):\n        return module\nand pass to the trainer as\ntrainer = Trainer(\n    ...,\n    DeepSpeedStrategy(stage=2, precision_plugin=DeepSpeedPrecisionWithoutModuleConversion('32-true'))\n)"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "Boltzmachine"
+          },
+          "bodyText": "I found you should implement the dtype conversion in your LightningModule, and avoid DeepSpeedStrategy from converting your module.\nfrom lightning.pytorch.plugins import DeepSpeedPrecision\nfrom lightning.pytorch.strategies import DeepSpeedStrategy\nfrom typing_extensions import override\n\nclass DeepSpeedPrecisionWithoutModuleConversion(DeepSpeedPrecision):\n    @override\n    def convert_module(self, module):\n        return module\nand pass to the trainer as\ntrainer = Trainer(\n    ...,\n    DeepSpeedStrategy(stage=2, precision_plugin=DeepSpeedPrecisionWithoutModuleConversion('32-true'))\n)"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Alternate \"prediction\" loops",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/20318",
+    "createdAt": "2024-10-04T01:34:39Z",
+    "updatedAt": "2024-10-04T03:58:51Z",
+    "bodyText": "I am hoping to implement an additional loop through the Trainer in order to leverage Lightnings automagic handling of dataloaders and GPUs. Specifically, I want to run batches through the attribution methods from Captum. My first attempt was to hijack the predition_step of the LightningModule with a simple class attribute self.calculate_attributes switch:\n    def predict_step(self, batch, batch_idx):\n        if self.calculate_attributes:\n            return self.attribution_step(batch, batch_idx)\n        else:\n            data, target = batch\n            return self.model(data)\n    \n    def attribution_step(self, batch, batch_idx):\n        data, target = batch\n        batch_size = data.shape[0]\n        baselines = torch.zeros_like(data)\n        attribution = self.explainer.attribute(data, baselines, target=target, internal_batch_size=batch_size)\n        return attribution, target\nBut this has run into issues because gradients are required, and, I believe, the prediction loop disables them. I tried to get around with the @torch.enable_grad() decorator and explicit .requires_grad=True calls, but that is not working. For every attempt I get the error RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn. I have no issue running the explainers on their own on the same data. I've been looking at the depreciated Loops interface but haven't made any progress there either.\nIs there a proper way to implement this? Any suggestions would be appreciated.",
+    "answerChosenAt": "2024-10-04T03:58:51Z",
+    "answer": {
+      "author": {
+        "login": "kaboroevich"
+      },
+      "bodyText": "Setting Trainer(inference_mode=False) was the answer\n#15925 #15765"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "kaboroevich"
+          },
+          "bodyText": "I have also tested calling attribution_step within training_step and it does not raise an error."
+        },
+        {
+          "author": {
+            "login": "kaboroevich"
+          },
+          "bodyText": "Setting Trainer(inference_mode=False) was the answer\n#15925 #15765"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Saving conformer checkpoint and resuming train progress from checkpoint",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/20286",
+    "createdAt": "2024-09-18T03:29:55Z",
+    "updatedAt": "2024-09-19T15:48:02Z",
+    "bodyText": "Confused about saving checkpoint of encoder-decoder models in lightning AI. Is the saving checkpoint technique same for all models?\n  checkpoint_callback = ModelCheckpoint(\n      monitor='val_loss',\n      dirpath=\"./saved_checkpoint/\",\n      filename='model-{epoch:02d}-{val_wer:.2f}',\n      save_top_k=3,        # 3 Checkpoints\n      mode='min'\n  )\nBut how to load the checkpoint again to resume the training? Is the same as normal architecture models like giving ckpt_path in trainer()\n  ckpt_path = args.checkpoint_path if args.checkpoint_path else None\n  trainer.fit(speech_trainer, data_module, ckpt_path=ckpt_path)   \n  trainer.validate(speech_trainer, data_module)",
+    "answerChosenAt": "2024-09-19T15:48:02Z",
+    "answer": {
+      "author": {
+        "login": "LuluW8071"
+      },
+      "bodyText": "Found the answer the code above is correct"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "LuluW8071"
+          },
+          "bodyText": "Found the answer the code above is correct"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Clarifying how `log` with `sync_dist` and `on_epoch` from the `training_step` works?",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/20123",
+    "createdAt": "2024-07-24T04:00:00Z",
+    "updatedAt": "2025-09-02T13:34:27Z",
+    "bodyText": "Hello, the documentation about log doesn't seem to specify quite what happens with a couple combinations of settings. Notably, I'm interested in calculating a metric on each step (inside training_step), with the values reduced at the end of the epoch (using on_step=False, on_epoch=True). However, when running with DDP, I would like to also reduce across the DDP group. But, for performance, I only want this reduction to happen at the end of the epoch, not on each step. If I set sync_dist does the sync happen on each step before accumulating? Or does it happen during the reduction at the end of the epoch since this is when the logging occurs? If it happens on each step, is there a good builtin a way to have this sync happen on the values which were already accumulated? To note, using the on_train_epoch_end function will not work well in my standard case, as a single epoch would will contain billions of values if not accumulated during the training step and kept as separate values. Thank you for your time!",
+    "answerChosenAt": "2025-09-02T13:34:27Z",
+    "answer": {
+      "author": {
+        "login": "lokesh-vr-17773"
+      },
+      "bodyText": "The sync_dist, sync_dist_group and reduce_fx flags from self.log(...) don\u2019t affect the metric logging in any manner. The metric class contains its own distributed synchronization logic.\n\nRef: https://lightning.ai/docs/torchmetrics/v1.8.1/pages/lightning.html"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "huangfu170"
+          },
+          "bodyText": "If you want to compute some matrix using DDP strategy, you can use the torchmetric and implement a metric yourself. It can reduce all when you call compute()"
+        },
+        {
+          "author": {
+            "login": "lokesh-vr-17773"
+          },
+          "bodyText": "The sync_dist, sync_dist_group and reduce_fx flags from self.log(...) don\u2019t affect the metric logging in any manner. The metric class contains its own distributed synchronization logic.\n\nRef: https://lightning.ai/docs/torchmetrics/v1.8.1/pages/lightning.html"
+        }
+      ]
+    }
+  },
+  {
+    "title": "deterministic torch.random.random_split",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19944",
+    "createdAt": "2024-06-04T16:11:01Z",
+    "updatedAt": "2024-06-14T12:33:26Z",
+    "bodyText": "I am using\ntorch.utils.data.random_split()\n\nto create train, val,test split, however, I am testing the data on two different models which were trained pytroch lightning, but it is not splitting deterministically while I am setting seed_everything:42\nHow can I address this?",
+    "answerChosenAt": "2024-06-14T12:33:27Z",
+    "answer": {
+      "author": {
+        "login": "adosar"
+      },
+      "bodyText": "What do you mean it does \"not splitting deterministically\"? This function is part of Pytorch and has nothing to do with Lightning.\nFrom the Pytorch docs:\ngenerator = torch.Generator().manual_seed(42)\nrandom_split(range(10), [3, 7], generator=generator)"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "adosar"
+          },
+          "bodyText": "What do you mean it does \"not splitting deterministically\"? This function is part of Pytorch and has nothing to do with Lightning.\nFrom the Pytorch docs:\ngenerator = torch.Generator().manual_seed(42)\nrandom_split(range(10), [3, 7], generator=generator)"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Evaluate or change type from argument in configuration yaml file. Fix Jsonargparse error \"'cannot represent an object'\"",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19797",
+    "createdAt": "2024-04-22T14:00:10Z",
+    "updatedAt": "2024-04-24T10:05:31Z",
+    "bodyText": "Hi!\nI am new to the Pytorch Lighning CLI and I am struggling modifying an existing pipeline to be able to load checkpoints into the model.\nAt the moment, in the set up we are using pl.LightningModule, pl.LightningDataModule and a config.yaml file.\nSo far, I have been able to correctly initialize/instantiate the LighningModule by adding a CheckPointLoader constructor to the Yaml SafeLoader class.\n.....\nmodel:\n  model:\n    class_path: Model\n    init_args:\n      precomputed_checkpoint:\n         - !CheckpointLoader \n           file_path: ../notebooks/lightning_logs/version_7/checkpoints/epoch=49-step=3150.ckpt\n           attr: ...layer1.bias # I extract the torch.Tensor \"bias\" parameter from the layer1 from the checkpointed model\n           convert_fn: ...transforms.load.process_checkpoint #returns a torch.Tensor\n.....\nThe CheckpointLoader  uses the load_from_checkpoint function to retrieve the parameter bias from the checkpointed model (or whichever parameter of choice). This means that it returns a list with the torch.Tensor (Side note:I am not sure yet at which point the torch.Tensor returned by the convert_fn is wrapped into a list and I would also like to avoid that).\nAfter the instantiation of  pytorch LighningModule class, then the cli proceeds to parse the command line arguments cli(args=args). Then it struggles because the CheckPointLoader returned a list(torch.Tensor) which cannot be interpreted or evaluated by the parser.\n\n  File \"/opt/conda/lib/python3.10/site-packages/jsonargparse/_typehints.py\", line 610, in raise_union_unexpected_value\n    raise ValueError(\nValueError: Does not validate against any of the Union subtypes\nSubtypes: (<class 'Model'>, <class 'NoneType'>)\nErrors:\n  - ('cannot represent an object', tensor(..., device='meta', size=(16,)))\n  - Expected a <class 'NoneType'>\nGiven value type: <class 'jsonargparse._namespace.Namespace'>\n\nThat is my intuition about the meaning of the error, perhaps there is something else going on.\nQuestions:\ni) Is this the correct approach to load parameters from a checkpoint into a new model instantiation? We tried different approaches that were more problematic than this one (error-wise)\nii) If so,  how can I manipulate the parser so that it would evaluate literally the torch.Tensor? Something similar to the CheckPointLoader constructor or equivalent to the flag type used in the .add_argument  function in the classical ArgumentParser ?\nI tried to look for possible approaches within the attributes from the LightningArgumentParser and ArgumentParser classes, however it did not make much sense to me.\nThank you in advance for your time!",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "LightningCLI is a class that makes it simple to implement a CLI. But there are multiple ways of using it, and it is not clear what exactly you are doing, i.e. a minimal reproduction example. Also, the idea is that people implement the module classes with type hints, such that they are usable independent of any CLI. Without the CLI how would the checkpoint be given to the model class? LightningCLI is just a wrapper that interprets the parameters and type hints, but they should make sense without the CLI.\nUsing python-specific yaml syntax such as !CheckpointLoader ... is not the intended way of using it. The intention is that people can learn how to provide the different options by calling the CLI with --help and --print_config. For example, if LightningCLI is used with default options that includes subcommands, then if you run cli.py fit --help then you would see the --ckpt_path. This is a parameter of the Trainer.fit method that can be used to load a checkpoint, and there is no need to implement this logic in the model class. If you don't use subcommands, then the loading of a checkpoint would need to be implemented by you."
+        },
+        {
+          "author": {
+            "login": "LysSanzMoreta"
+          },
+          "bodyText": "@mauvilsa Thank you very much for your quick reply. At the moment, it is a little complicated for me to provide a reasonable reproducible example at the moment since the code is full of nested classes and I am still trying to wrap my head around it.\nIndeed, the ckpt_path argument could be helpful, since it  loads the model into a new instance and then continues training (I have successfully tested it). What we were trying to do is to load the learnt parameters and then resume training whilst freezing the training of some selected ones. Is there a tutorial or help on how to manipulate the model loaded via the ckpt_path in a similar manner?\nThanks!"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Inference inside callback",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19752",
+    "createdAt": "2024-04-10T07:45:44Z",
+    "updatedAt": "2024-04-22T14:22:13Z",
+    "bodyText": "Hello,\nI have a weird issue when running inference with a callback. I guess I'm not using pytorch lightning the intended way.\nAfter each epoch, inside a callback, I run trainer.predict on a small dataset to plot some figures that I save with weight & biases. I thought it was pretty standard to do so, but I got the error below.\nI wrote this dummy minimal reproducible example:\nimport lightning as L\nfrom lightning.pytorch.callbacks import Callback\n\nimport torch\nfrom torch.utils.data import DataLoader\nfrom torch import nn, optim\n\nclass Model(L.LightningModule):\n    def __init__(self):\n        super().__init__()\n        self.f = nn.Linear(10, 1)\n        \n    def training_step(self, batch, *args):\n        out = self(batch)\n        return out.mean()\n    \n    def forward(self, x):\n        return self.f(x)[:, 0]\n\n    def train_dataloader(self):\n        return DataLoader(torch.randn((100, 10)))\n    \n    def predict_dataloader(self):\n        return DataLoader(torch.randn((100, 10)))\n    \n    def predict_step(self, batch):\n        return self(batch)\n    \n    def configure_optimizers(self):\n        optimizer = optim.Adam(self.parameters(), lr=1e-3)\n        return optimizer\n    \nclass PlotCallback(Callback):\n    def on_train_epoch_end(self, trainer: L.Trainer, model: Model) -> None:\n        loader = model.predict_dataloader()\n        trainer.predict(model, loader)\n        \n        ... # save figure to wandb\n\nmodel = Model()\ncallback = PlotCallback()\ntrainer = L.Trainer(max_epochs=2, callbacks=callback, accelerator=\"cpu\")\n\ntrainer.fit(model)\n\nError log\n\n---------------------------------------------------------------------------\nAssertionError                            Traceback (most recent call last)\nCell In[3], [line 5]\n      [2] callback = PlotCallback()\n      [3] trainer = L.Trainer(max_epochs=2, callbacks=callback, accelerator=\"cpu\")\n----> [5] trainer.fit(model)\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:544](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:544), in Trainer.fit(self, model, train_dataloaders, val_dataloaders, datamodule, ckpt_path)\n    [542](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:542) self.state.status = TrainerStatus.RUNNING\n    [543](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:543) self.training = True\n--> [544](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:544) call._call_and_handle_interrupt(\n    [545](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:545)     self, self._fit_impl, model, train_dataloaders, val_dataloaders, datamodule, ckpt_path\n    [546](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:546) )\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/call.py:44](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:44), in _call_and_handle_interrupt(trainer, trainer_fn, *args, **kwargs)\n     [42](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:42)     if trainer.strategy.launcher is not None:\n     [43](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:43)         return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)\n---> [44](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:44)     return trainer_fn(*args, **kwargs)\n     [46](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:46) except _TunerExitException:\n     [47](XXX/python3.9/site-packages/lightning/pytorch/trainer/call.py:47)     _call_teardown_hook(trainer)\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:580](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:580), in Trainer._fit_impl(self, model, train_dataloaders, val_dataloaders, datamodule, ckpt_path)\n    [573](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:573) assert self.state.fn is not None\n    [574](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:574) ckpt_path = self._checkpoint_connector._select_ckpt_path(\n    [575](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:575)     self.state.fn,\n    [576](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:576)     ckpt_path,\n    [577](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:577)     model_provided=True,\n    [578](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:578)     model_connected=self.lightning_module is not None,\n    [579](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:579) )\n--> [580](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:580) self._run(model, ckpt_path=ckpt_path)\n    [582](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:582) assert self.state.stopped\n    [583](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:583) self.training = False\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:987](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:987), in Trainer._run(self, model, ckpt_path)\n    [982](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:982) self._signal_connector.register_signal_handlers()\n    [984](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:984) # ----------------------------\n    [985](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:985) # RUN THE TRAINER\n    [986](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:986) # ----------------------------\n--> [987](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:987) results = self._run_stage()\n    [989](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:989) # ----------------------------\n    [990](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:990) # POST-Training CLEAN UP\n    [991](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:991) # ----------------------------\n    [992](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:992) log.debug(f\"{self.__class__.__name__}: trainer tearing down\")\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1033](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1033), in Trainer._run_stage(self)\n   [1031](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1031)         self._run_sanity_check()\n   [1032](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1032)     with torch.autograd.set_detect_anomaly(self._detect_anomaly):\n-> [1033](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1033)         self.fit_loop.run()\n   [1034](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1034)     return None\n   [1035](XXX/python3.9/site-packages/lightning/pytorch/trainer/trainer.py:1035) raise RuntimeError(f\"Unexpected state {self.state}\")\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:206](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:206), in _FitLoop.run(self)\n    [204](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:204)     self.on_advance_start()\n    [205](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:205)     self.advance()\n--> [206](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:206)     self.on_advance_end()\n    [207](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:207)     self._restarting = False\n    [208](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:208) except StopIteration:\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:380](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:380), in _FitLoop.on_advance_end(self)\n    [377](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:377) call._call_lightning_module_hook(trainer, \"on_train_epoch_end\")\n    [378](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:378) call._call_callback_hooks(trainer, \"on_train_epoch_end\", monitoring_callbacks=True)\n--> [380](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:380) trainer._logger_connector.on_epoch_end()\n    [382](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:382) if self.epoch_loop._num_ready_batches_reached():\n    [383](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:383)     # if we are restarting and the above condition holds, it's because we are reloading an epoch-end checkpoint.\n    [384](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:384)     # since metric-based schedulers require access to metrics and those are not currently saved in the\n    [385](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:385)     # checkpoint, the plateau schedulers shouldn't be updated\n    [386](XXX/python3.9/site-packages/lightning/pytorch/loops/fit_loop.py:386)     self.epoch_loop.update_lr_schedulers(\"epoch\", update_plateau_schedulers=not self.restarting)\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:195](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:195), in _LoggerConnector.on_epoch_end(self)\n    [193](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:193) def on_epoch_end(self) -> None:\n    [194](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:194)     assert self._first_loop_iter is None\n--> [195](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:195)     metrics = self.metrics\n    [196](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:196)     self._progress_bar_metrics.update(metrics[\"pbar\"])\n    [197](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:197)     self._callback_metrics.update(metrics[\"callback\"])\n\nFile [~/Library/Caches/pypoetry/virtualenvs/novae-ezkWKrh6-py3.9/lib/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:233](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:233), in _LoggerConnector.metrics(self)\n    [231](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:231) \"\"\"This function returns either batch or epoch metrics.\"\"\"\n    [232](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:232) on_step = self._first_loop_iter is not None\n--> [233](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:233) assert self.trainer._results is not None\n    [234](XXX/python3.9/site-packages/lightning/pytorch/trainer/connectors/logger_connector/logger_connector.py:234) return self.trainer._results.metrics(on_step)\n\nAssertionError:\n\nVersions:\n\nPython 3.9\nLightning 2.2.1\nTorch 2.2.1",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "quentinblampey"
+          },
+          "bodyText": "Using pl_module.transfer_batch_to_device solved this:\nclass PlotCallback(Callback):\n    def on_train_epoch_end(self, trainer: L.Trainer, model: Model) -> None:\n        loader = model.predict_dataloader()\n        for batch in loader:\n            batch = model.transfer_batch_to_device(batch, model.device, 0)\n            model.predict_step(batch)\n        \n        ... # save figure to wandb"
+        }
+      ]
+    }
+  },
+  {
+    "title": "set state in LightningModule using LightningDataModule after setup",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19735",
+    "createdAt": "2024-04-03T22:21:57Z",
+    "updatedAt": "2024-04-04T22:04:45Z",
+    "bodyText": "I would like to be able to set an attribute on my LightningModule model object after the trainer has called setup(stage='fit') on the datamodule, but before the sanity validation loop and training loops begin (the reason is this: the datamodule prepares a certain tokenizer in its prepare_data method, and then loads this tokenizer in its setup method, and my model needs access to the tokenizer). I searched through the model hooks and callbacks and it's not clear if there's a hook that gets called at some point between the datamodule setup and the start of the validation/fit loops. How would I go about doing this?",
+    "answerChosenAt": "2024-04-04T22:04:45Z",
+    "answer": {
+      "author": {
+        "login": "abefrandsen"
+      },
+      "bodyText": "Ok I found a way to do it. I have something like the following in the datamodule. This is functional but I'd be interested if there a better pattern I can employ here.\nclass MyDM(L.LightningDataModule):\n    ...\n    def setup(self, stage):\n        self._load_tokenizer()\n        if hasattr(self, \"trainer\"): # here I communicate the tokenizer to the model\n            self.trainer.lightning_module.tokenizer= self.tokenizer"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "abefrandsen"
+          },
+          "bodyText": "Ok I found a way to do it. I have something like the following in the datamodule. This is functional but I'd be interested if there a better pattern I can employ here.\nclass MyDM(L.LightningDataModule):\n    ...\n    def setup(self, stage):\n        self._load_tokenizer()\n        if hasattr(self, \"trainer\"): # here I communicate the tokenizer to the model\n            self.trainer.lightning_module.tokenizer= self.tokenizer"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Configuring OneCycleLR from yaml file lightning CLI",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19689",
+    "createdAt": "2024-03-23T20:17:00Z",
+    "updatedAt": "2025-05-03T06:26:01Z",
+    "bodyText": "Is there a way to configure OneCycleLR using yaml config files and Lightning CLI?\nThe problem is that the argument of OneCycleLR on initialization is the total number of steps, which I usually initialize using self.trainer.estimated.stepping.batches inside configure_optimizers inside lightning module. I don't see how this could be done using CLI and config files.\nFor the reference, I implemented CLI as described here",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "It would be nice if this were possible by doing:\nclass MyCLI(LightningCLI):\n    def add_arguments_to_parser(self, parser):\n        parser.link_arguments(\n            \"trainer.estimated_stepping_batches\",\n            \"model.scheduler.init_args.total_steps\",\n            apply_on=\"instantiate\",\n        )\nUnfortunately this is not possible because the trainer is instantiated by the LightningCLI class and not by jsonargparse, which prevents linking with source the trainer. There are other use cases which could be solved by linking from the trainer but not possible because of this. I have thought about refactoring LightningCLI to allow it. But this isn't a simple task and haven't had time for it.\nThough, I think there could be a non-optimal workaround. Something like:\nclass MyModel(LightningModule):\n    def __init__(\n        self,\n        optimizer: OptimizerCallable = torch.optim.Adam,\n        scheduler: LRSchedulerCallable = torch.optim.lr_scheduler.ConstantLR,\n    ):\n        super().__init__()\n        self.optimizer = optimizer\n        self.scheduler = scheduler\n\n    def configure_optimizers(self):\n        optimizer = self.optimizer(self.parameters())\n        scheduler = self.scheduler(optimizer)\n        if isinstance(scheduler, torch.optim.lr_scheduler.OneCycleLR):\n            scheduler.total_steps = self.trainer.estimated_stepping_batches\n        return {\"optimizer\": optimizer, \"lr_scheduler\": scheduler}\n\nif __name__ == \"__main__\":\n    cli = LightningCLI(MyModel, auto_configure_optimizers=False)\nNote that I haven't tested it. It is just to illustrate the idea.\nNot optimal because when wanting to use OneCycleLR, it would be required to specify a dummy total_steps in the config file, which would then be overwritten in configure_optimizers."
+        },
+        {
+          "author": {
+            "login": "glsch"
+          },
+          "bodyText": "I also noticed that if one wants multiple optimizers and/or schedulers and writes, say,\nrnn_optimizer: OptimizerCallable = torch.optim.Adagrad\ninstead of\nrnn_optimizer: OptimizerCallable = lambda p: torch.optim.Adagrad(p)\ninit_args of the rnn_optimizer are not injected in the configuration.\nEven with rnn_optimizer: OptimizerCallable = torch.optim.Adagrad, I would expect this:\n  rnn_optimizer:\n    class_path: torch.optim.Adagrad\n    init_args:\n      lr: 0.01\n      lr_decay: 0.0\n      weight_decay: 0.0\n      initial_accumulator_value: 0.0\n      eps: 1.0e-10\n      foreach: null\n      maximize: false\n      differentiable: false\nbut get this:\n  rnn_optimizer: torch.optim.Adagrad\nIt is also not possible to set defaults in the CLI for when I am using lambda.\nThe following code:\nclass RnnClusterer(LightningModule):\n    def __init__(self,\n                 rnn: torch.nn.Module,\n                 noise: torch.nn.Module,\n                 head: torch.nn.Module,\n                 main_heads: int,\n                 control_heads: int,\n                 rnn_optimizer: OptimizerCallable = lambda p: torch.optim.Adagrad(p),\n                 head_optimizer: OptimizerCallable = lambda p: torch.optim.Adagrad(p),\n                 rnn_lr_scheduler: LRSchedulerCallable = lambda o: torch.optim.lr_scheduler.LinearLR(o),\n                 head_lr_scheduler: LRSchedulerCallable = lambda o: torch.optim.lr_scheduler.LinearLR(o),\n                 scheduler_config: Optional[dict] = None,\n                 leak: Union[float, None, str] = \"auto\",\n                 accumulation_steps: int = 1,\n                 leak_decay: float = 0.5,\n                 in_model_logging_level: int = logging.INFO,\n                 clusteriness: float = 0.8,\n                 ):\n        super().__init__()\nwith this custom CLI:\nparser.set_defaults({\n            \"model.rnn_lr_scheduler.init_args.start_factor\": 1,\n            \"model.rnn_lr_scheduler.init_args.end_factor\": 0.0,\n            \"model.rnn_lr_scheduler.init_args.total_iters\": 1000,\n            \"model.head_lr_scheduler.init_args.start_factor\": 1,\n            \"model.head_lr_scheduler.init_args.end_factor\": 0.0,\n            \"model.head_lr_scheduler.init_args.total_iters\": 1000\n        })\nProduces the following error:\n\njsonargparse._namespace.NSKeyError: No action for key \"model.rnn_lr_scheduler.init_args.start_factor\" to set its default."
+        }
+      ]
+    }
+  },
+  {
+    "title": "ValueError(f\"{func} does not have a return type annotation\") when implementing LightningCLI",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19637",
+    "createdAt": "2024-03-15T14:13:40Z",
+    "updatedAt": "2024-03-17T16:15:02Z",
+    "bodyText": "Dear All,\nI am trying to implement the LightningCLI class, but it tells me my model does not have any Type annotation, although I added class function type return type annotation.\nWhat am I doing wrong?\nThank you for your input!\nLG\nMax",
+    "answerChosenAt": "2024-03-17T16:15:02Z",
+    "answer": {
+      "author": {
+        "login": "djtschke"
+      },
+      "bodyText": "Hi Mauvilsa,\nthank you for your reply. While trying to come up with a minimal reproduction example I actually found the solution to my problem:\nLightningCLI() does not take the instance of the model as a parameter but the class itself (as I guess instantiation is then done by the pipeline itself). To be more clear:\nWrong / Not Working:\nfrom lightning.pytorch.cli import LightningCLI\nfrom MyFancyModel import MyFancyModelClass\nfrom MyFancyDataModule import MyFancyDataModuleClass\n\nmodel = MyFancyModelClass()\ndatamodule = MyFancyDataModuleClass()\n\nLightningCLI = LightningCLI(model, datamodule)\n\nCorrect / Working:\nfrom lightning.pytorch.cli import LightningCLI\nfrom MyFancyModel import MyFancyModelClass\nfrom MyFancyDataModule import MyFancyDataModuleClass\n\nLightningCLI = LightningCLI(MyFancyModelClass, MyFancyDataModuleClass)\n\nHope that also helps others!\nCheers,\nMax"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "@djtschke it is difficult to say what you are doing wrong without seen the code you are running. Please provide a minimal reproduction example."
+        },
+        {
+          "author": {
+            "login": "djtschke"
+          },
+          "bodyText": "Hi Mauvilsa,\nthank you for your reply. While trying to come up with a minimal reproduction example I actually found the solution to my problem:\nLightningCLI() does not take the instance of the model as a parameter but the class itself (as I guess instantiation is then done by the pipeline itself). To be more clear:\nWrong / Not Working:\nfrom lightning.pytorch.cli import LightningCLI\nfrom MyFancyModel import MyFancyModelClass\nfrom MyFancyDataModule import MyFancyDataModuleClass\n\nmodel = MyFancyModelClass()\ndatamodule = MyFancyDataModuleClass()\n\nLightningCLI = LightningCLI(model, datamodule)\n\nCorrect / Working:\nfrom lightning.pytorch.cli import LightningCLI\nfrom MyFancyModel import MyFancyModelClass\nfrom MyFancyDataModule import MyFancyDataModuleClass\n\nLightningCLI = LightningCLI(MyFancyModelClass, MyFancyDataModuleClass)\n\nHope that also helps others!\nCheers,\nMax"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Facing various issues with validation loop when using IterableDataset that implements __len__",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19413",
+    "createdAt": "2024-02-05T20:13:31Z",
+    "updatedAt": "2024-02-13T14:54:05Z",
+    "bodyText": "Hello all,\nI'm trying to train a neural network with a tabular Parquet dataset which cannot fit into memory. As a solution, I've been using PyArrow to load one row at a time, leaving the Dataloader to handle batching. I decided to wrap this in a Pytorch IterableDataset which implements the __len__ method, so that Lightning's Trainer can maintain the notion of an epoch.\nI'll post code below, but broadly speaking, my structure is to create a generator for each parquet file using pyarrow's iter_batches method. I chain these together using itertools.chain and return an iterator for resulting chain in the __iter__ method of a pytorch IterableDataset.\nIn addition, as described in Pytorch's documentation, I use torch.utils.data.get_worker_info to assign each worker a subset of these parquet file generators, to avoid redundant data. I implement __len__ by iterating over the parquet files in my dataset and adding up the number of rows in each\nHere's the code:\nimport pyarrow.parquet as pq\nfrom pyarrow.fs import S3FileSystem\nfrom torch.utils.data import Dataset, IterableDataset, get_worker_info\nfrom itertools import chain\nimport boto3\n\nclass MyDataset(IterableDataset):\n    def __init__(files):\n\n        self.all_gens = [single_parquet_gen(f) for f in files]\n        self.length = get_parquet_dataset_length(bucket, files)\n\n    def __len__(self):\n        return self.length\n\n    def __iter__(self):\n        if get_worker_info() is not None:\n            num_workers = get_worker_info().num_workers\n            worker_id = get_worker_info().id\n\n            # Iterable dataloaders must split up the iterables to avoid repeating data\n            # Assign each worker to len(self.all_gens) / num_workers parquet files\n\n            pqs_this_worker = assign_subset_to_worker(self.all_gens, num_workers, worker_id)\n            chain_this_worker = chain(*pqs_this_worker)\n\n            return iter(chain_this_worker)\n    \n        else: \n            chained = chain(*self.all_gens)\n            return iter(chained)\n\n\ndef single_parquet_gen(parquet_file):\n    s3 = boto3.client('s3')\n    obj = s3.get_object(Bucket=bucket, Key=key)\n    parquet_file = pq.ParquetFile(io.BytesIO(obj['Body'].read()))\n    gen = parquet_file.iter_batches(batch_size=bs)\n    for batch in gen:\n        yield format_data(batch.to_pylist()[0])\n\ndef format_data(data):\n    <This part formats the tabular data to the shape/type my Pytorch network expects>\n\ndef get_parquet_dataset_length(files):\n    dataset = pq.ParquetDataset(paths, filesystem=s3)\n    nrow = 0\n    for fragment in dataset.fragments:\n        nrow += fragment.metadata.num_rows\n    return nrow\n\ndef assign_subset_to_worker(files, num_splits, split_id):\n    n = len(to_split)\n    size = n // num_splits  # Initialize with equal sizes\n    remainder = n % num_splits\n    \n    # Distribute the remainder items among workers 0:remainder\n    start_idx = split_id*size + min(remainder, split_id)\n    end_idx = start_idx + size + (1 if split_id < remainder else 0)\n    \n    return files[start_idx:end_idx]\n\nclass MyDataModule():\n\n    def __init__(self, directory, bs, num_workers):\n        self.train_files = get_s3_uris(directory+'/train')\n        self.val_files = get_s3_uris(directory+'/val')\n        self.test_files = get_s3_uris(directory+'/test')\n\n    def setup(self):\n        self.train_data = MyDataset(self.train_files)\n        self.val_data = MyDataset(self.val_files)\n        self.test_data = MyDataset(self.test_files)\n\n    def train_dataloader(self):\n        return self.get_dataloader(self.train_data)\n\n    def val_dataloader(self):\n        return self.get_dataloader(self.val_data)\n\n    def get_dataloader(self, dataset):\n        return DataLoader(dataset, self. bs, num_workers=self.num_workers, drop_last=False, persistent_workers=num_workers > 0, pin_memory=False, sampler=None)\n\ndef get_s3_uris(bucket, prefix):\n    s3 = boto3.client('s3')\n\n    paginator = s3.get_paginator('list_objects_v2')\n    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)\n    uris = []\n\n    for page in pages:\n        for obj in page['Contents']:\n            #print(obj['Key'].split('/')[-1][0])\n            if obj['Key'].split('/')[-1][0] == '_':\n                continue\n            uris.append(obj['Key'])\n\n    return uris\n\nt = Trainer(check_val_every_n_epoch=1, max_epochs=2, reload_dataloaders_every_n_epochs=1)\nt.fit(<some_model>, datamodule)\n\nUsing the datamodule in isolation, I've confirmed that the dataloader runs for the expected number of steps. However, when using the Trainer, I've experienced various issues with this setup:\n\nFirst, my Trainer only made it through one train epoch. The next would have 0 steps. This was remedied by setting reload_dataloaders_every_n_epochs=1\nHowever, each train epoch after the first does not run for ceiling(len(dataset) / batch_size) steps, as expected\nThe Trainer still only runs a single validation epoch. Afterwards, each train epoch goes right into the next\nOn top of this, the validation epoch skips 2 steps, plus another 2 per worker (i.e. if len(dataset) / batch_size = 40, and I use num_workers=2 in my dataloader, the validation epoch only goes for 34 steps according to the progress bar)\nMoreover, validation does not run at all if I set num_workers = 0\n\nMost of my testing was performed with num_workers=1 for simplicity, but all of the above issues still occur. Also, I've run this code using a standard Dataset which loads a subset of data into memory and everything worked fine, which has made me stop investigating format_data, get_s3_uris, or the parquet files themselves as a culprits.\nCan anyone lend a hand? Am I doing something wrong, forgetting some setting, or is there an issue in how Lightning treats finite-length IterableDatasets?\n(I had a thought that maybe the shortened val epochs have to do with sanity checking. These checks run two steps, but I'm not sure if they're run once per process + once at the start of training. I don't believe this would address train dataloaders, though, unless sanity checking has some hidden interaction with train dataloaders. I suspect some overall inconsistency in resetting iterators at the appropriate time.)\nEDIT: I didn't get any of this issues in pure Pytorch. Gonna test a bit more and make this an issue once I'm sure that it's a Lightning thing",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "arzaatri"
+          },
+          "bodyText": "For anyone reading this, setting persistent_workers=False seems to have fixed:\n\nValidation epoch only running once (now it runs after very train epoch, as expected)\nTrain epochs having the incorrect number of steps (now they have ceiling(len(dataset) / batch_size) steps, as expected)\nValidations epochs skipping steps (now they have ceiling(len(dataset) / batch_size) steps, as expected)"
+        }
+      ]
+    }
+  },
+  {
+    "title": "confusions about load_from_checkpoint() and save_hyperparameters()",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19312",
+    "createdAt": "2024-01-18T16:40:55Z",
+    "updatedAt": "2024-01-28T04:19:39Z",
+    "bodyText": "according to\n\nhttps://lightning.ai/docs/pytorch/stable/common/checkpointing_basic.html,\n\nThere is a model like this:\nclass Encoder(L.LightningModule):\n    ...\n\nclass Decoder(L.LightningModule):\n    ...\n\nclass Autoencoder(L.LightningModule):\n    def __init__(self, encoder, decoder, *args, **kwargs):\n        self.save_hyperparameters(ignore=['encoder', 'decoder'])\n        self.encoder=encoder\n        self.encoder.freeze()\n        self.decoder=decoder\n        ...\n\n# training code\nencoder = Encoder.load_from_checkpoint(\"encoder.ckpt\")\ndecoder = Decoder(some hyperparameters)\nautoencoder = Autoencoder(encoder, decoder)\ntrainer.fit(autoencoder, datamodule)\n\n\nWe assume that the autoencoder has been stored in the autoencoder.ckpt file. There are three key points I am curious about:\n\nDoes the autoencoder.ckpt file include both the encoder and decoder weights?\nIf autoencoder.ckpt contains the encoder weights, how can I import the weights from encoder.ckpt into the autoencoder without them being overwritten?\nIf autoencoder.ckpt does not include the decoder weights, what is the procedure to save the decoder weights separately?",
+    "answerChosenAt": "2024-01-28T04:19:39Z",
+    "answer": {
+      "author": {
+        "login": "KasuganoLove"
+      },
+      "bodyText": "I got my answer from\n\nhttps://lightning.ai/forums/t/confusions-about-load-from-checkpoint-and-save-hyperparameters/4881/2"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "KasuganoLove"
+          },
+          "bodyText": "I got my answer from\n\nhttps://lightning.ai/forums/t/confusions-about-load-from-checkpoint-and-save-hyperparameters/4881/2"
+        }
+      ]
+    }
+  },
+  {
+    "title": "How to load the weight weight from checkpoint while we didn't self.save_hyparams(.) ?",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19290",
+    "createdAt": "2024-01-16T07:38:22Z",
+    "updatedAt": "2024-02-02T08:34:16Z",
+    "bodyText": "As the title, i wonder what I should do to only load the model weight as the starting point of finetuneing.\nFirstly, I can not call self.hyparams(.) to save the model arguments, or it will stuck train.fit procedure without any error message.  So, I need to first initialize the random weight modelA and modelB, and hope the checkpoint will automatically load the pretrained weight in it when I call Dummy_framework.load_from_checkpoint(.).\nOtherwise, I will get the error about xxx.__init__() missing xxx required positional arguments: modelA, modelB, ...\nSecondly, I try to trust the automatic saving mechanism (without any callback, any self.hyparams, torch.save something), and   I can find the checkpoint under the folder. So, I don't know what the checkpoint contains, but I assume it contains everything including model weights.\nwhen I execute the following code, it doesn't give any error and run smoothly, but I afraid the pre-trained weight doesn't be loaded in modelA and modelB.\ndummy_modelA, dummy_modelB = get_rand_init_weight_models(cfger.model_params)\ntmp = Dummy_framework.load_from_checkpoint(\n    cfger.test_params['PATH'], modelA=dummy_modelA, modelB=dummy_modelB,\n    **cfger.train_params  # dummy args\n)\ntrainer.fit(tmp, dataloaders=tra_ld)\n\nSince the torch-lightning document described :\n# if you train and save the model like this it will use these values when loading\n# the weights. But you can overwrite this\nLitModel(in_dim=32, out_dim=10)\n\n# uses in_dim=32, out_dim=10\nmodel = LitModel.load_from_checkpoint(PATH)\n\n# uses in_dim=128, out_dim=10\nmodel = LitModel.load_from_checkpoint(PATH, in_dim=128, out_dim=10)\n\nSo, will the pretrained model be overrides by the random init modelA, modelB weights ?\nAs I did this :\nDummy_framework.load_from_checkpoint(cfger.test_params['PATH'], \n# I feed the dummy model into it, to prevent the error message I described in First point.\nmodelA=dummy_modelA, modelB=dummy_modelB\n)\n\nBesides, if I want to conduct finetuneing, how can I only load the pretrained weight (modelA, modelB) and discard the other info, including lr states, epochs states, ... ?\nAny suggestion will be appreciated!!\n( PS. the PL document in Checkpoint Loading seems not helpful in this case",
+    "answerChosenAt": "2024-02-02T08:34:16Z",
+    "answer": {
+      "author": {
+        "login": "KasuganoLove"
+      },
+      "bodyText": "So, will the pretrained model be overrides by the random init modelA, modelB weights ?\n\nI think no.\nThe lightning module load_from_checkpoint method is like this:\n@_restricted_classmethod\ndef load_from_checkpoint(\n    cls,\n    checkpoint_path: Union[_PATH, IO],\n    map_location: _MAP_LOCATION_TYPE = None,\n    hparams_file: Optional[_PATH] = None,\n    strict: bool = True,\n    **kwargs: Any,\n) -> Self:\n\nand the discription of strict is: strict: Whether to strictly enforce that the keys in :attr:`checkpoint_path` match the keys returned by this module's state dict.\nSince the your lightning module ckpt contains both two models (you can print your ckpt to check this), and default strict is True, the load_from_checkpoint method will strictly load every keys in :attr:`checkpoint_path` match the keys returned by this module's state dict."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "KasuganoLove"
+          },
+          "bodyText": "I have a similar question\n\n#19312\n\nwaiting for answers."
+        },
+        {
+          "author": {
+            "login": "KasuganoLove"
+          },
+          "bodyText": "So, will the pretrained model be overrides by the random init modelA, modelB weights ?\n\nI think no.\nThe lightning module load_from_checkpoint method is like this:\n@_restricted_classmethod\ndef load_from_checkpoint(\n    cls,\n    checkpoint_path: Union[_PATH, IO],\n    map_location: _MAP_LOCATION_TYPE = None,\n    hparams_file: Optional[_PATH] = None,\n    strict: bool = True,\n    **kwargs: Any,\n) -> Self:\n\nand the discription of strict is: strict: Whether to strictly enforce that the keys in :attr:`checkpoint_path` match the keys returned by this module's state dict.\nSince the your lightning module ckpt contains both two models (you can print your ckpt to check this), and default strict is True, the load_from_checkpoint method will strictly load every keys in :attr:`checkpoint_path` match the keys returned by this module's state dict."
+        }
+      ]
+    }
+  },
+  {
+    "title": "How to exclude model `__init__` parameters from the lightning CLI?",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19245",
+    "createdAt": "2024-01-08T14:43:57Z",
+    "updatedAt": "2024-01-09T14:15:54Z",
+    "bodyText": "I have a model that looks something like this:\nclass MyModel(L.LightningModule):\n    def __init__(\n        self,\n        data_mean: float = 0,\n        data_std: float = 1,\n        learning_rate: float = 1e-3,\n    ) -> None:\n        super().__init__()\n        self.data_mean = data_mean\n        self.data_std = data_std\n        self.learning_rate = learning_rate\n        ...\n\n    def training_step(self, batch):\n        normalized_output = self(batch)\n        denormalized_output = normalized_output * self.data_std + self.data_mean\n        ...\n\n    def configure_optimizers(self):\n        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)\n        return optimizer\n\n    ...\nHere, learning_rate is an actual hyperparameter that one might want to set via a CLI argument. But data_mean and data_std are supposed to be calculated from the training data. These parameters are used to obtain a model that outputs values in real units, while the trainable parameters of the model are optimized to predict outputs with zero mean and unit standard deviation.\nMy main script looks something like this:\ndef main() -> None:\n    cli = LightningCLI(MyModel, MyDataModule, run=False)\n\n    data = MyDataModule(\"data\")\n    data.setup()\n    model = MyModel(\n        data_mean=data.train_mean.item(),\n        data_std=data.train_std.item(),\n    )\n    trainer = L.Trainer()\n    trainer.fit(model, data, ...)\n\n\nif __name__ == \"__main__\":\n    main()\nHere, the idea would be to access the CLI arguments through the cli object and use them to implement my custom logic. But of course, the data_mean and data_std parameters end up in the config file and CLI help, where they don't belong.\nIs there a way to exclude such parameters from the inferred CLI options or am I using LightningCLI wrong?",
+    "answerChosenAt": "2024-01-09T14:14:06Z",
+    "answer": {
+      "author": {
+        "login": "mauvilsa"
+      },
+      "bodyText": "A parameter that is in __init__ is something that should be specified by the user and not computed. If you compute something based on init params, then internally give it a different name since it is not the same as what gets provided.\nWhat you need is argument linking. Have a look at #13403 (comment), also cli argument linking and jsonargparse argument linking. You could link the entire data module. Though, it might be cleaner to link a @property that provides whatever needs computing.\nNote. When an argument is linked, it doesn't show up in the config. Since the value is derived instead of provided."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "The purpose of the config file that LightningCLI automatically saves is reproducibility. That is, it is for you to know what were the parameters that were used to train the model. If you define parameters such as data_mean: float, then they do belong in that config file.\nNote that you have defined these parameters as non-optional. That means that every time an instance of MyModel is created, then these parameters always should get a float value. If not specified, they get the default, but still a float. If you want them to not always be a float, and implement some logic depending on that, then you could change the the type, e.g. to Optional[float]. All depends on what you want to do. But again, in the config saved during training, these parameters should appear just as they were given to train. If later, you want to do inference, and the values of these parameters should be different, then give the correct values. Regardless, that config is not intended to be directly for inference, since it purpose is only reproducibility."
+        }
+      ]
+    }
+  },
+  {
+    "title": "No Progress bar showing in Slurm output file",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19227",
+    "createdAt": "2024-01-01T18:24:18Z",
+    "updatedAt": "2024-07-24T04:08:37Z",
+    "bodyText": "The title explains exactly the problem I have.\nI would like to see the TQDM progress bar updates in the slurm output log.\nIt works on my computer and I get the progress bar in my terminal.\nHowever, when I run a sbatch script of the model I do not see the progress bar updates in the slurm output file or somewhere else in the logs directory.  I tried both the tqdm and rich progress bar but with both I do not see any output.\nIs this the intended behaviour for running in a slurm system?\nIf so it there a way to get tqdm to output to the slurm output file or maybe a way to redirect it to another file.\nI made sure I am using the latest Ligthning and tqdm version.  I also search everywhere on the lightning docs and github for a similar question but i could not find any.\nAny help or solutions are appreciated.\nThank you.",
+    "answerChosenAt": "2024-01-02T11:42:33Z",
+    "answer": {
+      "author": {
+        "login": "Cing2"
+      },
+      "bodyText": "Okay, I found my problem. It was a mistake from my part, I am sorry for the issue.\nI was using the pytorch ligthning + hydra template to construct my code and I used hydra to change the progress bar which was default set to rich to tqdm, however, I did this wrong and thus I was still using the rich progress bar on the server. This one does not provide intermediate step updates."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "Cing2"
+          },
+          "bodyText": "Okay, I found my problem. It was a mistake from my part, I am sorry for the issue.\nI was using the pytorch ligthning + hydra template to construct my code and I used hydra to change the progress bar which was default set to rich to tqdm, however, I did this wrong and thus I was still using the rich progress bar on the server. This one does not provide intermediate step updates."
+        }
+      ]
+    }
+  },
+  {
+    "title": "Global module variable re-initialized at training time",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/19148",
+    "createdAt": "2023-12-12T22:57:50Z",
+    "updatedAt": "2023-12-13T20:25:18Z",
+    "bodyText": "I have a complex data structure that requires adding every sample of my dataset to a dictionary _annotation_ids_str_to_int.\nThis variable is common to the training, validation, and test splits. It is defined as a global variable in a module.\nThe variable seems to be initialized correctly. However, at training time, the variable needs to be accessed by the __getitem__ function. This function finds the variable to be empty.\nI am not sure if the variable has been reinitialized or the issue is caused by multithreading or multiprocessing.\nHow do I get the __getitem__ function to properly access _annotation_ids_str_to_int ?\nHere's a dummy code that you can use to reproduce the error. It is composed of two files. Note the print calls that will help you to find the issue.\nAlso, note that the variable _annotation_ids_str_to_int is not exactly a dictionary, but it is instead a bidictionary which is simply a dictionary that offers a mapping from value to key when accessing my_dict.inverse.\nmain.py\nfrom my_datamodule import SampleDataModule\nimport torch\nimport pytorch_lightning as pl\n\nimport utils\n\n\nlog = utils.get_pylogger(__name__)\n\n\nclass Net(torch.nn.Module):\n\n    def __init__(self):\n        super(Net, self).__init__()\n        self.layer = torch.nn.Linear(10, 2)\n\n    def forward(self, x):\n        return self.layer(x)\n\n\nclass Model(pl.LightningModule):\n\n    def __init__(self, net):\n        super(Model, self).__init__()\n        self.net = net\n        self.loss = torch.nn.MSELoss()\n        self.optimizer = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9)\n        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.9)\n\n    def forward(self, x):\n        return self.net(x)\n\n    def training_step(self, batch, batch_id):\n        inputs, y = batch\n        y_pred = self.forward(inputs)\n        loss = self.loss(y_pred, y)\n        return {'loss': loss}\n\n    def validation_step(self, batch, batch_id):\n        inputs, y = batch\n        y_pred = self.forward(inputs)\n        loss = self.loss(y_pred, y)\n        return {'loss': loss}\n\n    def configure_optimizers(self):\n        pass\n\n\ndef main():\n    net = Net()\n    model = Model(net)\n    datamodule = SampleDataModule()\n    trainer = pl.Trainer()\n    trainer.fit(model, datamodule=datamodule)\n\n\nif __name__ == \"__main__\":\n    main()\n\n\nmy_datamodule.py\nfrom typing import Dict, Optional\n\nfrom bidict import bidict\nimport torch\nfrom torch.utils.data import DataLoader, Dataset\nfrom pytorch_lightning import LightningDataModule\n\n\n_annotation_ids_str_to_int: Dict[str, int] = bidict()\n\n\nclass BaseImageDataset(Dataset):\n\n    def __init__(self):\n        self.length = torch.randint(5, 10, (1, )).item()\n        for i in range(self.length):\n            _annotation_ids_str_to_int[i] = (torch.tensor([i] * 10), i * 2)\n        print(\"__init__ Current keys are\", _annotation_ids_str_to_int.keys())\n\n    def __len__(self):\n        return self.length\n\n    def __getitem__(self, index: int):\n        print(\"__getitem__ Current keys are\", _annotation_ids_str_to_int.keys())\n        return _annotation_ids_str_to_int[index]\n\n\nclass SampleDataModule(LightningDataModule):\n\n    def __init__(self):\n        super().__init__()\n        self.save_hyperparameters(logger=False)\n        self.train_dataset = None\n        self.val_dataset = None\n        self.test_dataset = None\n\n    def prepare_data(self):\n        pass\n\n    def setup(self, stage: Optional[str] = None):\n        # Initialize dataset splits\n        self.train_dataset = BaseImageDataset()\n        self.val_dataset = BaseImageDataset()\n        self.test_dataset = BaseImageDataset()\n\n    @property\n    def _get_data_loaders_common_kwargs(self):\n        return dict(\n            batch_size=8,\n            num_workers=1,\n            pin_memory=True,\n            persistent_workers=True,\n            prefetch_factor=1,\n            drop_last=False\n        )\n\n    def train_dataloader(self):\n        return DataLoader(self.train_dataset, **self._get_data_loaders_common_kwargs)\n\n    def val_dataloader(self):\n        return DataLoader(self.val_dataset, **self._get_data_loaders_common_kwargs)\n\n    def test_dataloader(self):\n        return DataLoader(self.test_dataset, **self._get_data_loaders_common_kwargs)\n\nThe output is the following:\nGPU available: False, used: False\nTPU available: False, using: 0 TPU cores\nIPU available: False, using: 0 IPUs\nHPU available: False, using: 0 HPUs\n/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/loops/utilities.py:89: PossibleUserWarning: `max_epochs` was not set. Setting it to 1000 epochs. To train without an epoch limit, set `max_epochs=-1`.\n  rank_zero_warn(\nMissing logger folder: /Users/myuser/project//src/issue_torch_lightning/lightning_logs\n/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/core/optimizer.py:182: UserWarning: `LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer\n  rank_zero_warn(\n  | Name | Type    | Params\n---------------------------------\n0 | net  | Net     | 22    \n1 | loss | MSELoss | 0     \n---------------------------------\n22        Trainable params\n0         Non-trainable params\n22        Total params\n0.000     Total estimated model params size (MB)\n**__init__ Current keys are dict_keys([0, 1, 2, 3, 4, 5, 6, 7])\n__init__ Current keys are dict_keys([0, 1, 2, 3, 4, 5, 6, 7])\n__init__ Current keys are dict_keys([0, 1, 2, 3, 4, 5, 6, 7])**\nSanity Checking: 0it [00:00, ?it/s]/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:236: PossibleUserWarning: The dataloader, val_dataloader 0, does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` (try 8 which is the number of cpus on this machine) in the `DataLoader` init to improve performance.\n  rank_zero_warn(\n**__getitem__ Current keys are dict_keys([])**\nTraceback (most recent call last):\n  File \"/Users/matteo/Library/Application Support/JetBrains/Toolbox/apps/PyCharm-P/ch-0/223.8836.43/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevconsole.py\", line 364, in runcode\n    coro = func()\n  File \"<input>\", line 1, in <module>\n  File \"/Users/matteo/Library/Application Support/JetBrains/Toolbox/apps/PyCharm-P/ch-0/223.8836.43/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_bundle/pydev_umd.py\", line 198, in runfile\n    pydev_imports.execfile(filename, global_vars, local_vars)  # execute the script\n  File \"/Users/matteo/Library/Application Support/JetBrains/Toolbox/apps/PyCharm-P/ch-0/223.8836.43/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_imps/_pydev_execfile.py\", line 18, in execfile\n    exec(compile(contents+\"\\n\", file, 'exec'), glob, loc)\n  File \"/Users/myuser/project//src/issue_torch_lightning/test_bug_torch_lightning.py\", line 58, in <module>\n    main()\n  File \"/Users/myuser/project//src/issue_torch_lightning/test_bug_torch_lightning.py\", line 54, in main\n    trainer.fit(model, datamodule=datamodule)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 696, in fit\n    self._call_and_handle_interrupt(\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 650, in _call_and_handle_interrupt\n    return trainer_fn(*args, **kwargs)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 735, in _fit_impl\n    results = self._run(model, ckpt_path=self.ckpt_path)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 1166, in _run\n    results = self._run_stage()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 1252, in _run_stage\n    return self._run_train()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 1274, in _run_train\n    self._run_sanity_check()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py\", line 1343, in _run_sanity_check\n    val_loop.run()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/loops/loop.py\", line 200, in run\n    self.advance(*args, **kwargs)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/loops/dataloader/evaluation_loop.py\", line 155, in advance\n    dl_outputs = self.epoch_loop.run(self._data_fetcher, dl_max_batches, kwargs)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/loops/loop.py\", line 200, in run\n    self.advance(*args, **kwargs)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/loops/epoch/evaluation_epoch_loop.py\", line 127, in advance\n    batch = next(data_fetcher)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/utilities/fetching.py\", line 184, in __next__\n    return self.fetching_function()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/utilities/fetching.py\", line 263, in fetching_function\n    self._fetch_next_batch(self.dataloader_iter)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/pytorch_lightning/utilities/fetching.py\", line 277, in _fetch_next_batch\n    batch = next(iterator)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/dataloader.py\", line 652, in __next__\n    data = self._next_data()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/dataloader.py\", line 1347, in _next_data\n    return self._process_data(data)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/dataloader.py\", line 1373, in _process_data\n    data.reraise()\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/_utils.py\", line 461, in reraise\n    raise exception\nKeyError: Caught KeyError in DataLoader worker process 0.\nOriginal Traceback (most recent call last):\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/_utils/worker.py\", line 302, in _worker_loop\n    data = fetcher.fetch(index)\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py\", line 49, in fetch\n    data = [self.dataset[idx] for idx in possibly_batched_index]\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py\", line 49, in <listcomp>\n    data = [self.dataset[idx] for idx in possibly_batched_index]\n  File \"/Users/myuser/project//src/issue_torch_lightning/my_datamodule.py\", line 25, in __getitem__\n    return _annotation_ids_str_to_int[index]\n  File \"/Users/myuser/project//venv/lib/python3.8/site-packages/bidict/_base.py\", line 523, in __getitem__\n    return self._fwdm[key]\nKeyError: 0\n\nI am using python 3.8.14 on macOS with the following requirements:\nbidict==0.22.1\npytorch-lightning==1.7.7\npytorch-lightning-bolts==0.3.2.post1\nsagemaker-pytorch-training==2.6.2.post0\ntorch==1.12.0\ntorchmetrics==0.10.0\ntorchvision==0.13.0",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mfoglio"
+          },
+          "bodyText": "I solved this by adding torch.multiprocessing.set_start_method('fork'). I think this is due to the way multiprocess works in python: see https://pytorch.org/docs/stable/data.html#platform-specific-behaviors ."
+        }
+      ]
+    }
+  },
+  {
+    "title": "ModelCheckpoint seems not work correctly with check_val_every_n_epoch>1",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18639",
+    "createdAt": "2023-09-26T03:49:51Z",
+    "updatedAt": "2023-09-28T01:44:42Z",
+    "bodyText": "I have a callback:\ncheckpoint_callback = ModelCheckpoint(\n        dirpath=ckpt_dir,\n        filename=\"checkpoint\",\n        every_n_epochs=2\n    )\nand a Trainer\ntrainer = pl.Trainer(\n        # default_root_dir=root_dir,\n        accelerator='gpu',\n        devices=[config.cuda_idx],\n        max_epochs=200,\n        check_val_every_n_epoch=5,\n        logger=tb_logger,\n        enable_checkpointing=True,\n        log_every_n_steps=1,\n        callbacks=[best_callback, checkpoint_callback],\n        deterministic=\"warn\",\n        enable_progress_bar=False,\n        # =====dev option=====\n        num_sanity_val_steps=0,\n        # fast_dev_run=1,\n        # limit_train_batches=1,\n        limit_val_batches=10\n        # limit_train_batches=300,\n        # profiler=profiler,\n\n    )\nI want to save the checkpoint every 2 epoch, and it does work when check_val_every_n_epoch in Trainer is set to 1.\nBut now I want to set check_val_every_n_epoch to 5, and still save the checkpoint every 2 epoch.\nAnd I got nothing in my checkpoint folder after 5 epoch (before validation).",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "Mo-Junyang"
+          },
+          "bodyText": "flag: save_on_train_epoch_end=True. Problem solved."
+        }
+      ]
+    }
+  },
+  {
+    "title": "how to use `find_usable_cuda_devices` in lightning cli config.yaml?",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18622",
+    "createdAt": "2023-09-24T06:51:38Z",
+    "updatedAt": "2023-09-26T14:24:00Z",
+    "bodyText": "for example\ntrainer:\n  accelerator: gpu\n  devices: [0]\n\nI want to use find_usable_cuda_devices(1) instead of choosing one avaliable gpu manually",
+    "answerChosenAt": "2023-09-26T14:24:01Z",
+    "answer": {
+      "author": {
+        "login": "mauvilsa"
+      },
+      "bodyText": "Unfortunately that is not supported. Though, you could do the following workaround. First subclass the trainer:\nimport re\nfrom lightning.fabric.accelerators import find_usable_cuda_devices\n\nclass CustomTrainer(Trainer):\n    def __init__(self, *args, **kwargs):\n        devices = kwargs.get(\"devices\")\n        if (\n            isinstance(devices, str)\n            and re.match(\"^find_usable_cuda_devices\\([0-9]*\\)$\", devices)\n        ):\n            kwargs[\"devices\"] = eval(devices)\n        super().__init__(*args, **kwargs)\nThen provide trainer_class=CustomTrainer when instantiating the LightningCLI class. In the config.yaml then it could be written as devices: find_usable_cuda_devices(1)."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "Unfortunately that is not supported. Though, you could do the following workaround. First subclass the trainer:\nimport re\nfrom lightning.fabric.accelerators import find_usable_cuda_devices\n\nclass CustomTrainer(Trainer):\n    def __init__(self, *args, **kwargs):\n        devices = kwargs.get(\"devices\")\n        if (\n            isinstance(devices, str)\n            and re.match(\"^find_usable_cuda_devices\\([0-9]*\\)$\", devices)\n        ):\n            kwargs[\"devices\"] = eval(devices)\n        super().__init__(*args, **kwargs)\nThen provide trainer_class=CustomTrainer when instantiating the LightningCLI class. In the config.yaml then it could be written as devices: find_usable_cuda_devices(1)."
+        }
+      ]
+    }
+  },
+  {
+    "title": "Multiple dataloaders in training_step() and use them separately",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18543",
+    "createdAt": "2023-09-13T03:18:08Z",
+    "updatedAt": "2025-05-10T17:24:22Z",
+    "bodyText": "Hi, I\u2019m figuring out how to use multiple dataloaders in training_step() of LightningModule. Currently, I pass a list of dataloaders in trainer.fit(), it will return the list of batches, each from a dataloader simultaneously. However, my use case differs in that I would want to process each batch from each dataset sequentially.\nFor example, I have three datasets. For step i, I receive a batch from dataset 0, update my model. For step i+1, I receive a batch from dataset 1 and update my model. For step i+2, I get a batch from dataset 2 and update my model. The process repeats until all samples are iterated.\nHow can I implement this in Pytorch Lightning ? Are there already supports for this ? I would be happy to dive in myself, but I don\u2019t know where to start.",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "changspencer"
+          },
+          "bodyText": "Hi @thangld201, this is an interesting use case.\nBefore reading the proposition below, you may want to answer a question: why do you need to have it iterate each dataset in a separate batch? Why not do what you're suggesting and feed dataset 1, compute loss, BP, feed dataset 2, compute loss, BP,..., feed dataset num_datasets, compute loss, and BP? Is it for logging purposes?\nIf it's more nuanced that the above, read on. \ud83d\ude42\n\nUltimately, you may not want to use the following, but there could be one or two good ideas.\nA brute force approach may be to load all the datasets into a single Dataset object that would return the particular dataset based on the index that is input to the __getitem__ method for these objects. Reminder: the __getitem__ method is given as __getitem__(self, index).\nFor example, suppose that you have num_datasets to pull from. Inside __getitem__, put some conditional that looks at the value of data_idx = index % num_datasets and chooses the dataset corresponding to that value. It could look something like the following:\nif data_idx == 0:\n    return dataset1_preproc(index)\nelif data_idx == 1:\n    return dataset2_preproc()\nelif data_idx == 2:\n    return dataset3_preproc()\nelse:\n    # Whatever your default case would be if there's something wrong with the indexing.\n\nThe downside to this approach is that - because you may look to \"repurpose\" the index - multiple problems come up:\n\nHow do you make the dataloader properly view the number of possible batches?\nHow do you do shuffled sampling during training (may have to implement this manually)?\n\nA potential way around the indexing problem is to hold an \"internal index\" that iterates over each datasets every time the dataset object is called."
+        },
+        {
+          "author": {
+            "login": "AndrewAnnex"
+          },
+          "bodyText": "@changspencer I am having a similar issue so want to post here and not open a new discussion\nAfter following the info about\narbitrary iterable support (https://lightning.ai/docs/pytorch/stable/data/iterables.html#multiple-iterables) in a small DataModule I wrote, in my training_step call the batch is now a list of batch dicts, and from the docs it's unclear what the user should do in that situation given the expected return type. It seems that just doing that alone is probably passing in alternating batches given the dataloader_idx, but I feel like I shouldn't have to handle the batch as a list and that somewhere outside of training_step Lightning should just be iterating through the batches for me allowing me to leave my code unchanged.\nI don't want to fit my model sequentially as I feel that'd just leave to the model forgetting/overfitting with class imbalance I believe is present between the two datasets, but that's really just a hunch so if that is really the correct way to do it let me know."
+        },
+        {
+          "author": {
+            "login": "tungts1101"
+          },
+          "bodyText": "@changspencer To answer why I want to handle each data loader separately, the reason is that in the robustness test, I want a result for each corruption to be logged separately. Can we do anything in the test_step() method?"
+        },
+        {
+          "author": {
+            "login": "ningxiangx"
+          },
+          "bodyText": "I just encountered the same need as you and found it can be solved easily, but rarely documented clearly.\nJust use 'sequential' mode for CombinedLoader of Lightning. Concretely, in a Lightinging paradigm, in your train_dataloader() and val_dataloader(), you return a CombinedLoader with, e.g., an OrderedDict of your individual loaders together with 'sequential' mode.\nAn interesting point is that Lightning treats multiple dataloaders differently in training and validation. In training, if you return directly a list/dict/OrderedDict, such as:\n            loader = OrderedDict([(\"major\",   loader_major),\n                         (\"secondary\", loader_secondary)])\n            return loader\n\nLightening will AUTOMATICALLY combine the two loaders in a batch so you get a batch as a list/tuple/OrderedDict. In order to achieve the separate-loader behaviour, you should return\n            loader = CombinedLoader(OrderedDict([(\"major\",   loader_major),\n                         (\"secondary\", loader_secondary)]), mode='sequential',)\n\nTo be compatible, you might want to define dataloader_idx in \"def training_step(self, batch, batch_idx, dataloader_idx=0)\"\nHowever, in validation, if you return\n            loader_val = OrderedDict([(\"major\",   loader_major_val),\n                            (\"secondary\", loader_secondary_val)])\n\nThe validation batch will AUTOMATICALLY be loader-specific. To be compatible with this, you might need to specify dataloader_idx in \"def validation_step(self, batch, batch_idx, dataloader_idx=0):\""
+        }
+      ]
+    }
+  },
+  {
+    "title": "LightningCLI: callbacks based on model",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18480",
+    "createdAt": "2023-09-05T00:50:36Z",
+    "updatedAt": "2023-09-05T13:56:56Z",
+    "bodyText": "I'm trying to use LightningCLI to replace TorchGeo's train.py script. I'm absolutely loving it so far, but have encountered one thing I'm not sure how to translate. The performance metric we monitor in our ModelCheckpoint/EarlyStopping callbacks depends on which model we select (e.g., classification: 'val_loss', object detection: 'val_map', SSL: 'train_loss'). What would be the most idiomatic way to handle this?\nMy first thought was to override LightningCLI.instantiate_trainer so that we can add callbacks based on parsed model config. Is there a cleaner way to do this? Ideally it would be possible for the user to override this but it's not a requirement.",
+    "answerChosenAt": "2023-09-05T13:56:23Z",
+    "answer": {
+      "author": {
+        "login": "tshu-w"
+      },
+      "bodyText": "Maybe you can config callbacks for model directly through LightningModule.configure_callbacks"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "tshu-w"
+          },
+          "bodyText": "Maybe you can config callbacks for model directly through LightningModule.configure_callbacks"
+        }
+      ]
+    }
+  },
+  {
+    "title": "fabric and scheduler",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18359",
+    "createdAt": "2023-08-21T13:52:53Z",
+    "updatedAt": "2023-12-13T14:56:26Z",
+    "bodyText": "How do I use fabric with a scheduler. The fabric API doesn't seem to have a fabric.setup_scheduler() function.\nThanks",
+    "answerChosenAt": "2023-12-13T14:56:27Z",
+    "answer": {
+      "author": {
+        "login": "awaelchli"
+      },
+      "bodyText": "@pfeatherstone There is no special need to setup the scheduler. You can just use it side by side with your optimizer and step it normally."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "awaelchli"
+          },
+          "bodyText": "@pfeatherstone There is no special need to setup the scheduler. You can just use it side by side with your optimizer and step it normally."
+        }
+      ]
+    }
+  },
+  {
+    "title": "load checkpoint resume from CLI, different learning rate",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18339",
+    "createdAt": "2023-08-18T07:28:53Z",
+    "updatedAt": "2023-08-23T09:10:16Z",
+    "bodyText": "Hi how do I load the weights of the lightning module? but change learning rate using CLI ?",
+    "answerChosenAt": "2023-08-23T09:10:16Z",
+    "answer": {
+      "author": {
+        "login": "mauvilsa"
+      },
+      "bodyText": "It depends on what you implement. What LightningCLI does is expose the parameters in __init__ as configurable from command line and config files. By self.learning_rate do you mean that you added an init parameter for the learning rate?\nNote that the CLIs have a help that explains how to use it, i.e. python cli.py --help. Also, look at the CLI documentation. The use of the automatic configure_optimizers, both for optimizers and schedulers is explained here. Though, if you have defined a learning rate parameter then it seems you are not doing that. A more advanced way of making optimizers and schedulers configurable (via dependency injection) is explained in multiple-optimizers-and-schedulers."
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "mauvilsa"
+          },
+          "bodyText": "This depends on the modules and CLI you implemented. If you implemented the minimal LightningCLI with subcommands and the automatic configure_optimizers, the it could be:\n# Initial run\npython cli.py fit [some settings] --optimizer SGD --optimizer.lr 0.01\n# second run\npython cli.py fit [other settings] --optimizer SGD --optimizer.lr 0.05 --ckpt_path lightning_logs/.../checkpoints/[some name].ckpt"
+        }
+      ]
+    }
+  },
+  {
+    "title": "`test_dataloader` must be implemented to be used with the Lightning Trainer",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18274",
+    "createdAt": "2023-08-10T13:39:06Z",
+    "updatedAt": "2023-09-27T02:29:08Z",
+    "bodyText": "Hi everyone,\nI am getting the following error:\nTraceback (most recent call last):\n  File \"d:\\Dev\\ml_tools\\ml_tools\\audio\\deep_learning\\main_trainvaltest.py\", line 198, in <module>\n    trainer.test(ckpt_path=\"best\")\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\trainer.py\", line 735, in test\n    return call._call_and_handle_interrupt(\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\call.py\", line 42, in _call_and_handle_interrupt\n    return trainer_fn(*args, **kwargs)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\trainer.py\", line 778, in _test_impl\n    results = self._run(model, ckpt_path=ckpt_path)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\trainer.py\", line 973, in _run\n    results = self._run_stage()\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\trainer.py\", line 1009, in _run_stage\n    return self._evaluation_loop.run()\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\loops\\utilities.py\", line 177, in _decorator\n    return loop_run(self, *args, **kwargs)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\loops\\evaluation_loop.py\", line 98, in run\n    self.setup_data()\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\loops\\evaluation_loop.py\", line 150, in setup_data\n    dataloaders = _request_dataloader(source)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\connectors\\data_connector.py\", line 330, in _request_dataloader\n    return data_source.dataloader()\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\connectors\\data_connector.py\", line 297, in dataloader\n    return call._call_lightning_module_hook(self.instance.trainer, self.name, pl_module=self.instance)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\trainer\\call.py\", line 144, in _call_lightning_module_hook\n    output = fn(*args, **kwargs)\n  File \"C:\\Users\\APU\\Anaconda3\\lib\\site-packages\\lightning\\pytorch\\core\\hooks.py\", line 445, in test_dataloader\n    raise MisconfigurationException(\"`test_dataloader` must be implemented to be used with the Lightning Trainer\")\nlightning.fabric.utilities.exceptions.MisconfigurationException: `test_dataloader` must be implemented to be used with the Lightning Trainer\n\nAlthough as shown below my test_dataloader is correctly implemented:\nclass TrainValTestDataModule(LightningDataModule):\n\n    def __init__(self, metadata, dataset_path, batch_size, num_workers, feature_name, feature_processing_parameters, signal_augmentation, feature_augmentation, augmentation_parameters, to_gpus):\n        super().__init__()\n        self.save_hyperparameters(ignore=[\"metadata\", \"dataset_path\", \"to_gpus\"])\n        self.prepare_data_per_node = True\n        self.metadata = metadata\n        self.dataset_path = dataset_path\n        self.to_gpus = to_gpus\n\n\n    def prepare_data(self) -> None:\n        return super().prepare_data()\n    \n\n    def setup(self, stage=None):\n        if stage==\"fit\":\n            self.train_ds = TrainValTestDataset(\n                                            metadata=self.metadata, \n                                            dataset_path=self.dataset_path,\n                                            stage=\"train\", \n                                            feature_name=self.hparams.feature_name, \n                                            feature_processing_parameters=self.hparams.feature_processing_parameters,\n                                            signal_augmentation=self.hparams.signal_augmentation,\n                                            feature_augmentation=self.hparams.feature_augmentation,\n                                            augmentation_parameters=self.hparams.augmentation_parameters,\n                                            to_gpus=self.to_gpus,\n                                            devices=self.trainer.strategy.root_device\n                                            )\n                                            \n            self.validation_ds = TrainValTestDataset(\n                                            metadata=self.metadata,\n                                            dataset_path=self.dataset_path,\n                                            stage=\"validation\", \n                                            feature_name=self.hparams.feature_name, \n                                            feature_processing_parameters=self.hparams.feature_processing_parameters, \n                                            signal_augmentation=False,\n                                            feature_augmentation=False,\n                                            augmentation_parameters=self.hparams.augmentation_parameters,\n                                            to_gpus=self.to_gpus,\n                                            devices=self.trainer.strategy.root_device\n                                            )\n        \n        elif stage==\"test\":\n            self.test_ds = TrainValTestDataset(\n                                            metadata=self.metadata,\n                                            dataset_path=self.dataset_path,\n                                            stage=stage, \n                                            feature_name=self.hparams.feature_name, \n                                            feature_processing_parameters=self.hparams.feature_processing_parameters, \n                                            signal_augmentation=False,\n                                            feature_augmentation=False,\n                                            augmentation_parameters=self.hparams.augmentation_parameters,\n                                            to_gpus=self.to_gpus,\n                                            devices=self.trainer.strategy.root_device\n                                            )            \n        \n\n    def train_dataloader(self):\n        train_dataloader = DataLoader(\n                                    dataset=self.train_ds, \n                                    batch_size=self.hparams.batch_size, \n                                    shuffle=True,\n                                    num_workers=self.hparams.num_workers, \n                                    pin_memory=True\n                                    )\n        return train_dataloader\n\n\n    def val_dataloader(self):\n        validation_dataloader = DataLoader(\n                                    dataset=self.validation_ds, \n                                    batch_size=self.hparams.batch_size,\n                                    shuffle=False, \n                                    num_workers=self.hparams.num_workers, \n                                    pin_memory=True\n                                    )\n        return validation_dataloader\n    \n    \n    def test_dataloader(self):\n        test_dataloader = DataLoader(\n                                    dataset=self.test_ds, \n                                    batch_size=self.hparams.batch_size,\n                                    shuffle=False, \n                                    num_workers=self.hparams.num_workers, \n                                    pin_memory=True\n                                    )\n        return test_dataloader\n\nI switched from pytorch-lightning to lightning 2.0.6 as i appeared as a solution in a couple of online forum threads, but it didn't work for me. Downgrading to lightning 2.0.0 didn't fix anything neither.\nHere is my LightningModule:\nclass Module(LightningModule):\n    def __init__(self, n_classes, classes_map, optimizer, optimizer_parameters, lr_scheduler, lr_scheduler_parameters, learning_rate, batch_size, model):\n        super().__init__()\n        # Save hyperparameters to the checkpoint\n        self.save_hyperparameters(ignore=[\"model\"])   \n        self.model = model     \n        #self.loss = nn.BCEWithLogitsLoss()\n        self.loss = nn.CrossEntropyLoss()\n        # Instantiation of the metrics\n        self.train_accuracy = Accuracy(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.val_accuracy = Accuracy(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.val_precision = Precision(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.val_recall = Recall(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.val_f1_score = F1Score(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")          \n        self.val_confmat = ConfusionMatrix(task=\"multiclass\", num_classes=self.hparams.n_classes, normalize=\"true\")\n        self.test_accuracy = Accuracy(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.test_precision = Precision(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.test_recall = Recall(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")\n        self.test_f1_score = F1Score(task=\"multiclass\", num_classes=self.hparams.n_classes, average=\"weighted\")          \n        self.test_confmat = ConfusionMatrix(task=\"multiclass\", num_classes=self.hparams.n_classes, normalize=\"true\")\n\n\n    def configure_optimizers(self): \n        if self.hparams.optimizer == \"Adam\": \n            optimizer = Adam(self.parameters(), lr=self.hparams.learning_rate)\n\n        if self.hparams.lr_scheduler == \"ReduceLROnPlateau\":\n            scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.hparams.lr_scheduler_parameters[\"patience\"], verbose=True)  \n\n        return {\n                \"optimizer\": optimizer,\n                \"lr_scheduler\": {\n                        \"scheduler\": scheduler,\n                        \"monitor\": \"validation_loss\",\n                        \"frequency\": 1\n                        }\n                }\n    \n        \n    def training_step(self, batch, batch_idx): \n        index, audio_name, targets, inputs = batch\n        logits = self.model(inputs) \n        loss = self.loss(logits, targets)\n        predictions = torch.argmax(logits, dim=1)\n        self.train_accuracy(logits, targets)\n        self.log(\"training_loss\", loss, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size, prog_bar=True)\n        self.log(\"training_accuracy\", self.train_accuracy, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)        \n        return {\"inputs\":inputs, \"targets\":targets, \"predictions\":predictions, \"loss\":loss}\n    \n    \n    def train_epoch_end(self, outputs):\n        # Log weights and biases for all layers of the model\n        for name, params in self.named_parameters():\n            self.logger.experiment.add_histogram(name, params,self.current_epoch)\n        # Only after the first training epoch, log one of the training inputs as a figure and log the model graph\n        if self.current_epoch == 0:\n            input_sample = outputs[0][\"inputs\"][0]\n            input_sample_target = outputs[0][\"targets\"][0].item()\n            input_sample_class = self.hparams.classes_map[input_sample_target]\n            fig = plt.figure(figsize=(20,20))\n            ax = fig.add_subplot(111)\n            ax.imshow(torch.squeeze(input_sample).cpu(), cmap=\"viridis\", origin=\"lower\", aspect=\"auto\")\n            ax.set_title(f\"Class: {input_sample_class}\")\n            ax.set_xlabel(\"Time Frames\")\n            self.logger.experiment.add_figure(\"Training sample input\", fig)\n            input_sample = torch.unsqueeze(input_sample, 3)\n            input_sample = torch.permute(input_sample, (3,0,1,2))\n            self.logger.experiment.add_graph(self.model, input_sample)\n\n            \n    def validation_step(self, batch, batch_idx):\n        index, audio_name, targets, inputs = batch\n        logits = self.model(inputs)\n        loss = self.loss(logits, targets)\n        predictions = torch.argmax(logits, dim=1)\n        self.val_accuracy(predictions, targets)\n        self.val_precision(predictions, targets)\n        self.val_recall(predictions, targets)\n        self.val_f1_score(predictions, targets)\n        self.val_confmat.update(predictions, targets)\n        self.log(f\"val_loss\", loss, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size, prog_bar=True)\n        self.log(f\"val_accuracy\", self.val_accuracy, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"val_precision\", self.val_precision, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"val_recall\", self.val_recall, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"val_f1_score\", self.val_f1_score, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)        \n\n    \n    def on_validation_epoch_end(self):\n        # Compute the confusion matrix, turn it into a DataFrame, generate the plot and log it\n        cm = self.val_confmat.compute()\n        cm = cm.cpu()\n        self.val_confmat.reset()\n        df_cm = pd.DataFrame(cm.numpy(), index=range(self.hparams.n_classes), columns=range(self.hparams.n_classes))\n        fig, ax = plt.subplots(figsize=(16,16))\n        sns.heatmap(data=df_cm, annot=True, cmap=\"Blues\", ax=ax, vmin=0, vmax=1)\n        ax.set_xticklabels(labels=list(self.hparams.classes_map.values()))\n        ax.set_yticklabels(labels=list(self.hparams.classes_map.values()))\n        ax.tick_params(axis=\"y\", labelrotation=0)\n        ax.tick_params(axis=\"x\", labelrotation=90)\n        ax.set_xlabel(\"Predicted\", fontsize=12)\n        ax.set_ylabel(\"Real\", fontsize=12)\n        self.logger.experiment.add_figure(\"Confusion matrix\", fig, self.current_epoch)\n        \n    def on_save_checkpoint(self, checkpoint):\n        # Get the state_dict from self.model to get rid of the \"model.\" prefix\n        checkpoint[\"state_dict\"] = self.state_dict()\n\n    def test_step(self, batch, batch_idx):\n        index, audio_name, targets, inputs = batch\n        logits = self.model(inputs)\n        loss = self.loss(logits, targets)\n        predictions = torch.argmax(logits, dim=1)\n        self.test_accuracy(predictions, targets)\n        self.test_precision(predictions, targets)\n        self.test_recall(predictions, targets)\n        self.test_f1_score(predictions, targets)\n        self.test_confmat.update(predictions, targets)\n        self.log(f\"test_loss\", loss, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size, prog_bar=True)\n        self.log(f\"test_accuracy\", self.test_accuracy, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"test_precision\", self.test_precision, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"test_recall\", self.test_recall, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)\n        self.log(f\"test_f1_score\", self.test_f1_score, on_step=False, on_epoch=True, batch_size=self.hparams.batch_size)",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "changspencer"
+          },
+          "bodyText": "I'm new to PyTorch Lightning, so I have a simple question from what I've quickly skimmed on their documentation/guide for validating and testing a model. Thanks for the post; I'm learning more ways to modularize my old PyTorch code by reading your post and going to the guide.\nWhere do you tell the Trainer what LightningDataModule (LDM) to use? As far as I can tell, you don't give the Trainer a reference to a LDM in the provided code. Is there some place you pass it in before the trainer.fit(...) method call?"
+        },
+        {
+          "author": {
+            "login": "Antoine101"
+          },
+          "bodyText": "Hi @changspencer and @JustinGoheen ,\nThanks for your inputs!\nStupid mistake from my end... As you said @changspencer, I don't pass the datamodule to my Trainer when calling the .test() method.\nMy main code before the fix:\n# Instantiation of the trainer\n    trainer = Trainer(\n        accelerator=config['run']['accelerator'],\n        devices=config['run']['devices'],\n        max_epochs=int(config['run']['epochs']),\n        logger=tensorboard_logger,\n        log_every_n_steps=1,\n        callbacks=[early_stopping, lr_monitor, checkpoint, progress_bar]\n    )\n\n    # Train the model\n    trainer.fit(model=lm, datamodule=dm) \n\n    # Evaluate it on the test set\n    trainer.test(ckpt_path=\"best\")\n\nMy main code after the fix:\n    # Instantiation of the trainer\n    trainer = Trainer(\n        accelerator=config['run']['accelerator'],\n        devices=config['run']['devices'],\n        max_epochs=int(config['run']['epochs']),\n        logger=tensorboard_logger,\n        log_every_n_steps=1,\n        callbacks=[early_stopping, lr_monitor, checkpoint, progress_bar]\n    )\n\n    # Train the model\n    trainer.fit(model=lm, datamodule=dm) \n\n    # Evaluate it on the test set\n    trainer.test(ckpt_path=\"best\", datamodule=dm)\n\nGiving the datamodule to the test() method solved my error.\nI got mislead by this part of the lightning documentation:\n\nThere is no way to pass a datamodule or model to the Trainer at instantiation. So I don't see how it would work doing it like the doc says."
+        }
+      ]
+    }
+  },
+  {
+    "title": "Why does Lightning AI Fabric gives warning to training with precision = \"bf16-mixed\" instead of \"bf16\"",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18263",
+    "createdAt": "2023-08-08T20:20:06Z",
+    "updatedAt": "2024-01-11T12:44:30Z",
+    "bodyText": "It gives the following warning: UserWarning: bf16 is supported for historical reasons but its usage is discouraged. Please set your precision to bf16-mixed instead! I have seen many articles training the model in pure bf16 and getting similar accuracy.",
+    "answerChosenAt": "2023-08-11T20:01:09Z",
+    "answer": {
+      "author": {
+        "login": "justusschock"
+      },
+      "bodyText": "Hi, previously, bf16 was a shorthand notation for bf16-mixed. To clearly distinguish between mixed precision and pure bf16 we introduced the notion of bf16-mixed and bf16-true while just bf16 still is a deprecated alias for bf16-mixed"
+    },
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "justusschock"
+          },
+          "bodyText": "Hi, previously, bf16 was a shorthand notation for bf16-mixed. To clearly distinguish between mixed precision and pure bf16 we introduced the notion of bf16-mixed and bf16-true while just bf16 still is a deprecated alias for bf16-mixed"
+        }
+      ]
+    }
+  },
+  {
+    "title": "The trainers runs a single validation step after resume (not sanity)",
+    "url": "https://github.com/Lightning-AI/pytorch-lightning/discussions/18110",
+    "createdAt": "2023-07-18T15:52:19Z",
+    "updatedAt": "2025-05-19T07:29:03Z",
+    "bodyText": "I am encountering a weird behavior using lightning (I use the lightningCLI as well).\nWhen I resume a training that has failed, with python train.py fit, the trainer runs a single validation step that is not a sanity check (I disabled sanity checks, and also the state of the trainer is RunningStage.VALIDATING).\nI run my main training with val_check_interval=0.5.\nThis is a problem, as it saves in my logs a metric point for this single batch as if it was an evaluation on the full validation set.\nI have metrics curve like this: when I resume, there is a wrong point (much higher here than the other ones).\n\nDo you know what could cause this issue and how to get around it ?",
+    "answerChosenAt": null,
+    "answer": null,
+    "comments": {
+      "nodes": [
+        {
+          "author": {
+            "login": "arnaudstiegler"
+          },
+          "bodyText": "Seeing a similar behavior with version 2.0.2 and 2.0.7 (latest). Might be worth opening an issue"
+        },
+        {
+          "author": {
+            "login": "jojonki"
+          },
+          "bodyText": "I debugged the phenomenon step by step. The issue is that during the restarting status, 0 steps of training and 1 step of validation are performed. To fix this, it is necessary to correct the restart logic, which seems to require a deep understanding of the PL code (I gave up and decided to allow this 1-step validation).\nWhen loading a checkpoint, restarting is set to True.\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/loop.py\n    \n    \n         Line 84\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           self.restarting = True \n        \n    \n  \n\n\nWhen training begins, it first checks if restarting is True and if validation is defined. If resuming training, it matches this condition and skips training. The Training Epoch progress bar ends at 0%.\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/training_epoch_loop.py\n    \n    \n        Lines 199 to 201\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           if self.restarting and self._should_check_val_fx(data_fetcher): \n        \n\n        \n          \n               # skip training and run validation in `on_advance_end` \n        \n\n        \n          \n               return \n        \n    \n  \n\n\nNext, it enters the validation loop.\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/fit_loop.py\n    \n    \n        Lines 197 to 200\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           self.setup_data() \n        \n\n        \n          \n           if self.skip: \n        \n\n        \n          \n               return \n        \n\n        \n          \n           self.reset() \n        \n    \n  \n\n\nIn EvaluationLoop's setup_data, it returns immediately, and data_fetcher remains None.\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/evaluation_loop.py\n    \n    \n        Lines 147 to 148\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           if self._combined_loader is not None and trainer_fn == TrainerFn.FITTING and not self._should_reload_val_dl: \n        \n\n        \n          \n               return \n        \n    \n  \n\n\nFollowing the reset, data is \"prefetched only once\".\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/evaluation_loop.py\n    \n    \n         Line 219\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           data_fetcher = _select_data_fetcher(trainer, trainer.state.stage) \n        \n    \n  \n\n\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/fetchers.py\n    \n    \n         Line 95\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           def __init__(self, prefetch_batches: int = 1) -> None: \n        \n    \n  \n\n\nIn EvaluationLoop, self._restarting becomes False, and normal training begins thereafter.\n\n  \n    \n      pytorch-lightning/src/lightning/pytorch/loops/fit_loop.py\n    \n    \n         Line 210\n      in\n      1439da4\n    \n  \n  \n    \n\n        \n          \n           self._restarting = False"
+        },
+        {
+          "author": {
+            "login": "Youyoun"
+          },
+          "bodyText": "Hello (:wave: @cdancette), I am encountering the same issue. A single validation step is performed after a mid-epoch checkpoint is loaded, where the stage is not set as sanity according to Trainer. Any news or issue related to this discussion ?"
+        },
+        {
+          "author": {
+            "login": "korotaS"
+          },
+          "bodyText": "Seems that this issue was already present a long ago (#11504) and it was even fixed (#11552), but if we look on current code is seems that the fix is gone...\nThe fix in version 1.5.10 (lines 534-535):\n\n  \n    \n      pytorch-lightning/pytorch_lightning/loops/epoch/training_epoch_loop.py\n    \n    \n        Lines 530 to 538\n      in\n      9ebdc52\n    \n  \n  \n    \n\n        \n          \n           # TODO(@awaelchli): let training/eval loop handle logic around limit_*_batches and val_check_batch \n        \n\n        \n          \n           is_val_check_batch = is_last_batch \n        \n\n        \n          \n            \n        \n\n        \n          \n           # while restarting with no fault-tolerant, batch_progress.current.ready is -1 \n        \n\n        \n          \n           if batch_idx == -1: \n        \n\n        \n          \n               return False \n        \n\n        \n          \n            \n        \n\n        \n          \n           if isinstance(self.trainer.limit_train_batches, int) and is_infinite_dataset: \n        \n\n        \n          \n               is_val_check_batch = (batch_idx + 1) % self.trainer.limit_train_batches == 0 \n        \n    \n  \n\n\nThat same code in the next version 1.6.0 ant later versions doesn't have the fix:\n\n  \n    \n      pytorch-lightning/pytorch_lightning/loops/epoch/training_epoch_loop.py\n    \n    \n        Lines 522 to 528\n      in\n      44e3edb\n    \n  \n  \n    \n\n        \n          \n           # TODO(@awaelchli): let training/eval loop handle logic around limit_*_batches and val_check_batch \n        \n\n        \n          \n           is_val_check_batch = is_last_batch \n        \n\n        \n          \n           if isinstance(self.trainer.limit_train_batches, int) and is_infinite_dataset: \n        \n\n        \n          \n               is_val_check_batch = (batch_idx + 1) % self.trainer.limit_train_batches == 0 \n        \n\n        \n          \n           elif self.trainer.val_check_batch != float(\"inf\"): \n        \n\n        \n          \n               is_val_check_batch = (batch_idx + 1) % self.trainer.val_check_batch == 0 \n        \n\n        \n          \n           return is_val_check_batch"
+        },
+        {
+          "author": {
+            "login": "theodorblackbird"
+          },
+          "bodyText": "Facing the same issue, it is particularly annoying when using checkpoint callback with save_top_k since it tracks possibly wrong \"best metric\"."
+        },
+        {
+          "author": {
+            "login": "shirondru"
+          },
+          "bodyText": "I'm also facing this issue"
+        },
+        {
+          "author": {
+            "login": "SeminKim"
+          },
+          "bodyText": "Also facing the same issue. I think fixing this correctly is a bit tricky, so I just ended up with dirty workaround:\nmanually exit train epoch loop with on_validation_model_zero_grad hook, which is called just before val_loop.run() in train_loop.on_advance_end(). Worked for me with Lightning 2.1.3.\n    def on_validation_model_zero_grad(self):\n        '''\n        Small hack to avoid first validation on resume. \n        This will NOT work if the gradient accumulation step should be performed at this point.\n        '''\n        super().on_validation_model_zero_grad()\n        if self.trainer.ckpt_path is not None and getattr(self, '_restarting_skip_val_flag', True):\n            self._restarting_skip_val_flag = False\n            raise StopIteration"
+        },
+        {
+          "author": {
+            "login": "magehrig"
+          },
+          "bodyText": "I also encountered this problem. Is there an github issue open for this? This definitely deserves attention"
+        },
+        {
+          "author": {
+            "login": "ethanhe42"
+          },
+          "bodyText": "this is very annoying. deserves more attention"
+        }
+      ]
+    }
+  }
+]
