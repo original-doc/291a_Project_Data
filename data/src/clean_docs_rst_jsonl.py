@@ -321,6 +321,10 @@ def process_file(
             output_items.append(item)
             kept += 1
 
+    # Add index field
+    for idx, obj in enumerate(output_items):
+        obj["index"] = idx
+
     # Write a single JSON array to output
     with outp.open("w", encoding="utf-8") as fout:
         json.dump(output_items, fout, ensure_ascii=False, indent=2)
