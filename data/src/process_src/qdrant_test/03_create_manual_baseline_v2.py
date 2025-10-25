@@ -341,7 +341,7 @@ def main():
     
     # Load queries
     queries_file = Path(args.queries) if args.queries else None
-    print(f"queries_file: {queries_file}")
+    # print(f"queries_file: {queries_file}")
     queries = load_test_queries(queries_file)
     
     print(f"\nLoaded {len(queries)} test queries")

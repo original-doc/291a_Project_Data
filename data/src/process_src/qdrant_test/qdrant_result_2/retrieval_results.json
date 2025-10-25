@@ -1,0 +1,232 @@
+[
+  {
+    "query_id": 1,
+    "query": "What parameters does the ModelCheckpoint callback accept and what do save_top_k and monitor do?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "done",
+        "docstring_summary": "TODO: Move track steps inside training loop and move part of these condition inside training loop `processed` is increased before `on_train_epoch_end`, the hook where checkpoints are typically saved. we use it here because the checkpoint data won't have `c",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 660
+      },
+      {
+        "func_name": "logged_metrics",
+        "docstring_summary": "The metrics sent to the loggers.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 454
+      },
+      {
+        "func_name": "logged_metrics",
+        "docstring_summary": "The metrics sent to the loggers.",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 2012
+      },
+      {
+        "func_name": "on_run_end",
+        "docstring_summary": "reset logic around the optimizer step",
+        "path": "src\\lightning\\pytorch\\loops\\optimization\\manual.py",
+        "index": 681
+      },
+      {
+        "func_name": "_format_checkpoint",
+        "docstring_summary": "Rename the model key Optimizers are saved in special keys named `optimizer_0`, `optimizer_1`, etc. These need to be merged back into a Python list",
+        "path": "src\\lightning\\pytorch\\utilities\\consolidate_checkpoint.py",
+        "index": 755
+      }
+    ],
+    "scores": [
+      0.6613699655297823,
+      0.6389028842412503,
+      0.6389028842412503,
+      0.6272490503651792,
+      0.615694532030293
+    ],
+    "latency": 0.04948902130126953,
+    "method": "graphcodebert-hybrid"
+  },
+  {
+    "query_id": 2,
+    "query": "How do I set up early stopping in PyTorch Lightning that stops training when validation loss doesn't improve for 5 epochs, and saves the best model based on that metric?",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "_run_early_stopping_check",
+        "docstring_summary": "Checks whether the early stopping condition is met and if so tells the trainer to stop the training. stop every ddp process if any world process decides to stop",
+        "path": "src\\lightning\\pytorch\\callbacks\\early_stopping.py",
+        "index": 1005
+      },
+      {
+        "func_name": "_run_early_stopping_check",
+        "docstring_summary": "Checks whether the early stopping condition is met and if so tells the trainer to stop the training. stop every ddp process if any world process decides to stop",
+        "path": "src\\lightning\\pytorch\\callbacks\\early_stopping.py",
+        "index": 780
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Runs a single training batch.",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 856
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Runs a single training batch.",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 1260
+      },
+      {
+        "func_name": "init_validation_tqdm",
+        "docstring_summary": "The train progress bar doesn't exist in `trainer.validate()`",
+        "path": "src\\lightning\\pytorch\\callbacks\\progress\\tqdm_progress.py",
+        "index": 615
+      }
+    ],
+    "scores": [
+      0.8027348544676752,
+      0.8027348544676752,
+      0.7894582089152721,
+      0.7894582089152721,
+      0.7597941233178971
+    ],
+    "latency": 0.04913139343261719,
+    "method": "graphcodebert-hybrid"
+  },
+  {
+    "query_id": 3,
+    "query": "My training is crashing with 'CUDA out of memory' error when using PyTorch Lightning Trainer. How can I reduce memory usage during training?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1383
+      },
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 895
+      },
+      {
+        "func_name": "on_run_start",
+        "docstring_summary": "update the current_epoch in-case of checkpoint reload reload the evaluation dataloaders too for proper display in the progress bar Check for modules in eval mode at training start",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 663
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Performs the training step for manual optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\optimization\\manual.py",
+        "index": 1284
+      },
+      {
+        "func_name": "advance",
+        "docstring_summary": "Performs the training step for manual optimization.",
+        "path": "src\\lightning\\pytorch\\loops\\optimization\\manual.py",
+        "index": 864
+      }
+    ],
+    "scores": [
+      0.7763184964385004,
+      0.7763184964385004,
+      0.6674783192948628,
+      0.6564926353075644,
+      0.6564926353075644
+    ],
+    "latency": 0.04155373573303223,
+    "method": "graphcodebert-hybrid"
+  },
+  {
+    "query_id": 4,
+    "query": "What's the difference between training_step and validation_step in LightningModule, and when is each one called during the training loop?",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "done",
+        "docstring_summary": "Evaluates when to leave the loop. TODO: Move track steps inside training loop and move part of these condition inside training loop `processed` is increased before `on_train_epoch_end`, the hook where checkpoints are typically saved. we use it here because",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 1222
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "Evaluates when to leave the loop. TODO: Move track steps inside training loop and move part of these condition inside training loop `processed` is increased before `on_train_epoch_end`, the hook where checkpoints are typically saved. we use it here because",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 844
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "TODO: Move track steps inside training loop and move part of these condition inside training loop `processed` is increased before `on_train_epoch_end`, the hook where checkpoints are typically saved. we use it here because the checkpoint data won't have `c",
+        "path": "src\\lightning\\pytorch\\loops\\fit_loop.py",
+        "index": 660
+      },
+      {
+        "func_name": "reset",
+        "docstring_summary": "batches_that_stepped is never set prior to saving a checkpoint, even when saving happens on_validation_end we could set it in the checkpoint but we prefer to keep checkpoints backward compatible handle situation in which save happened on_train_batch_end an",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 671
+      },
+      {
+        "func_name": "reset",
+        "docstring_summary": "when restarting, if we are running `validate` or `test` twice, since there's no concept of `max_epochs` we need to reset the current state when the loop has finished running some users want validation shuffling based on the training progress set the per-da",
+        "path": "src\\lightning\\pytorch\\loops\\evaluation_loop.py",
+        "index": 656
+      }
+    ],
+    "scores": [
+      0.7914705241098492,
+      0.7914705241098492,
+      0.7772995713214947,
+      0.7709874532325257,
+      0.7327416671523042
+    ],
+    "latency": 0.035971641540527344,
+    "method": "graphcodebert-hybrid"
+  },
+  {
+    "query_id": 5,
+    "query": "How do I set up distributed training on 4 GPUs using DDP strategy in PyTorch Lightning with automatic batch size scaling and gradient accumulation?",
+    "query_type": "advanced_configuration",
+    "retrieved_docs": [
+      {
+        "func_name": "training_step",
+        "docstring_summary": "Multiple optimizers (e.g.: GANs) do training_step with encoder do training_step with decoder",
+        "path": "src\\lightning\\pytorch\\core\\module.py",
+        "index": 632
+      },
+      {
+        "func_name": "on_before_optimizer_step",
+        "docstring_summary": "example to inspect gradient information in tensorboard",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 622
+      },
+      {
+        "func_name": "_setup_model",
+        "docstring_summary": "TODO: standardize this across all plugins in Lightning and Fabric. Related refactor: #7324",
+        "path": "src\\lightning\\pytorch\\strategies\\strategy.py",
+        "index": 695
+      },
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 895
+      },
+      {
+        "func_name": "init_module",
+        "docstring_summary": "Tensors that you instantiate under this context manager will be created on the device right away and have",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1383
+      }
+    ],
+    "scores": [
+      0.7533266622994484,
+      0.7200273676809521,
+      0.7080458082122377,
+      0.701959687230076,
+      0.701959687230076
+    ],
+    "latency": 0.04093194007873535,
+    "method": "graphcodebert-hybrid"
+  }
+]

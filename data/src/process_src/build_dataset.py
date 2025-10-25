@@ -71,7 +71,7 @@ class DatasetBuilder:
         
         cmd = [
             sys.executable, 
-            'pytorch_lightning_parser.py',
+            'pytorch_lightning_parser_FIXED.py',
             str(self.repo_path),
             '--output-dir', str(self.output_dir / 'basic'),
             '--min-docstring', '20',

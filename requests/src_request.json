@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "type": "api_usage",
+    "query": "What parameters does the ModelCheckpoint callback accept and what do save_top_k and monitor do?"
+  },
+  {
+    "id": 2,
+    "type": "implementation",
+    "query": "How do I set up early stopping in PyTorch Lightning that stops training when validation loss doesn't improve for 5 epochs, and saves the best model based on that metric?"
+  },
+  {
+    "id": 3,
+    "type": "debugging",
+    "query": "My training is crashing with 'CUDA out of memory' error when using PyTorch Lightning Trainer. How can I reduce memory usage during training?"
+  },
+  {
+    "id": 4,
+    "type": "conceptual",
+    "query": "What's the difference between training_step and validation_step in LightningModule, and when is each one called during the training loop?"
+  },
+  {
+    "id": 5,
+    "type": "advanced_configuration",
+    "query": "How do I set up distributed training on 4 GPUs using DDP strategy in PyTorch Lightning with automatic batch size scaling and gradient accumulation?"
+  }
+]
