@@ -207,7 +207,7 @@
     ]
   },
   {
-    "query": "init_meta_context() isn't available. What are some alternitives that have similar functionality?",
+    "query": "init_meta_context() isn't available. What are some alternatives that have similar functionality?",
     "query_type": "debugging",
     "relevant_docs": [
       {
