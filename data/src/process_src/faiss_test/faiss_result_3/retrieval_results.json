@@ -1,0 +1,232 @@
+[
+  {
+    "query_id": 1,
+    "query": "What parameters does the ModelCheckpoint callback accept and what do save_top_k and monitor do?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "func_name": "_attach_model_callbacks",
+        "docstring_summary": "Attaches the callbacks defined in the model.",
+        "path": "src\\lightning\\pytorch\\trainer\\connectors\\callback_connector.py",
+        "index": 465
+      },
+      {
+        "func_name": "_attach_model_callbacks",
+        "docstring_summary": "Attaches the callbacks defined in the model.",
+        "path": "src\\lightning\\pytorch\\trainer\\connectors\\callback_connector.py",
+        "index": 2023
+      },
+      {
+        "func_name": "checkpoint_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.model_checkpoint.ModelCheckpoint` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 431
+      },
+      {
+        "func_name": "checkpoint_callback",
+        "docstring_summary": "The first :class:`~lightning.pytorch.callbacks.model_checkpoint.ModelCheckpoint` callback in the",
+        "path": "src\\lightning\\pytorch\\trainer\\trainer.py",
+        "index": 1989
+      },
+      {
+        "func_name": "_migrate_model_checkpoint_save_on_train_epoch_end_default",
+        "docstring_summary": "Note: only iterate over keys that are strings. The legacy state key was the type of the callback.",
+        "path": "src\\lightning\\pytorch\\utilities\\migration\\migration.py",
+        "index": 773
+      }
+    ],
+    "scores": [
+      0.5506096174577595,
+      0.5506096174577595,
+      0.5212215558578466,
+      0.5212215558578466,
+      0.5206517842094495
+    ],
+    "latency": 0.014023303985595703,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 2,
+    "query": "How do I set up early stopping in PyTorch Lightning that stops training when validation loss doesn't improve for 5 epochs, and saves the best model based on that metric?",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "func_name": "on_validation_end",
+        "docstring_summary": "Save a checkpoint at the end of the validation stage.",
+        "path": "src\\lightning\\pytorch\\callbacks\\model_checkpoint.py",
+        "index": 62
+      },
+      {
+        "func_name": "on_validation_epoch_end",
+        "docstring_summary": "Called when a validation epoch ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "index": 95
+      },
+      {
+        "func_name": "on_validation_epoch_end",
+        "docstring_summary": "Called when a validation epoch ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\weight_averaging.py",
+        "index": 1653
+      },
+      {
+        "func_name": "on_validation_end",
+        "docstring_summary": "Save a checkpoint at the end of the validation stage. If a step/time-triggered save was deferred due to a missing monitored metric, perform the save now that validation metrics are available.",
+        "path": "src\\lightning\\pytorch\\callbacks\\model_checkpoint.py",
+        "index": 1025
+      },
+      {
+        "func_name": "done",
+        "docstring_summary": "early stopping",
+        "path": "src\\lightning\\pytorch\\loops\\training_epoch_loop.py",
+        "index": 670
+      }
+    ],
+    "scores": [
+      0.6039117876109508,
+      0.591544669421508,
+      0.591544669421508,
+      0.5909709869634402,
+      0.5861128297213406
+    ],
+    "latency": 0.017544031143188477,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 3,
+    "query": "My training is crashing with 'CUDA out of memory' error when using PyTorch Lightning Trainer. How can I reduce memory usage during training?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "func_name": "garbage_collection_cuda",
+        "docstring_summary": "Garbage collection Torch (CUDA) memory.",
+        "path": "src\\lightning\\pytorch\\utilities\\memory.py",
+        "index": 2098
+      },
+      {
+        "func_name": "garbage_collection_cuda",
+        "docstring_summary": "This is the last thing that should cause an OOM error, but seemingly it can. Only handle OOM errors",
+        "path": "src\\lightning\\pytorch\\utilities\\memory.py",
+        "index": 759
+      },
+      {
+        "func_name": "scale_batch_size",
+        "docstring_summary": "Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)",
+        "path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+        "index": 935
+      },
+      {
+        "func_name": "scale_batch_size",
+        "docstring_summary": "Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)",
+        "path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+        "index": 1480
+      },
+      {
+        "func_name": "teardown",
+        "docstring_summary": "This method is called to teardown the training process.",
+        "path": "src\\lightning\\pytorch\\strategies\\strategy.py",
+        "index": 1347
+      }
+    ],
+    "scores": [
+      0.563833843326919,
+      0.5468860136933253,
+      0.5467536281721698,
+      0.5467536281721698,
+      0.545903776530429
+    ],
+    "latency": 0.004999876022338867,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 4,
+    "query": "What's the difference between training_step and validation_step in LightningModule, and when is each one called during the training loop?",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "func_name": "on_validation_start",
+        "docstring_summary": "Called when the validation loop begins.",
+        "path": "src\\lightning\\pytorch\\callbacks\\callback.py",
+        "index": 27
+      },
+      {
+        "func_name": "on_validation_start",
+        "docstring_summary": "Called when the validation loop begins.",
+        "path": "src\\lightning\\pytorch\\callbacks\\callback.py",
+        "index": 990
+      },
+      {
+        "func_name": "on_validation_start",
+        "docstring_summary": "Called when the validation loop begins.",
+        "path": "src\\lightning\\pytorch\\callbacks\\callback.py",
+        "index": 1585
+      },
+      {
+        "func_name": "on_validation_model_train",
+        "docstring_summary": "Called when the validation loop ends.",
+        "path": "src\\lightning\\pytorch\\core\\hooks.py",
+        "index": 1709
+      },
+      {
+        "func_name": "on_validation_batch_end",
+        "docstring_summary": "Called when the validation batch ends.",
+        "path": "src\\lightning\\pytorch\\callbacks\\callback.py",
+        "index": 20
+      }
+    ],
+    "scores": [
+      0.5960430526759989,
+      0.5960430526759989,
+      0.5960430526759989,
+      0.5953698797323613,
+      0.5951726750118425
+    ],
+    "latency": 0.007037162780761719,
+    "method": "sentence-transformer"
+  },
+  {
+    "query_id": 5,
+    "query": "How do I set up distributed training on 4 GPUs using DDP strategy in PyTorch Lightning with automatic batch size scaling and gradient accumulation?",
+    "query_type": "advanced_configuration",
+    "retrieved_docs": [
+      {
+        "func_name": "_setup_model",
+        "docstring_summary": "https://pytorch.org/docs/stable/notes/cuda.html#id5",
+        "path": "src\\lightning\\pytorch\\strategies\\ddp.py",
+        "index": 682
+      },
+      {
+        "func_name": "_setup_model",
+        "docstring_summary": "Wraps the model into a :class:`~torch.nn.parallel.distributed.DistributedDataParallel` module.",
+        "path": "src\\lightning\\pytorch\\strategies\\ddp.py",
+        "index": 324
+      },
+      {
+        "func_name": "scale_batch_size",
+        "docstring_summary": "Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)",
+        "path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+        "index": 935
+      },
+      {
+        "func_name": "scale_batch_size",
+        "docstring_summary": "Iteratively try to find the largest batch size for a given model that does not give an out of memory (OOM)",
+        "path": "src\\lightning\\pytorch\\tuner\\tuning.py",
+        "index": 1480
+      },
+      {
+        "func_name": "_setup_model",
+        "docstring_summary": "Wraps the model into a :class:`~torch.nn.parallel.distributed.DistributedDataParallel` module. https://pytorch.org/docs/stable/notes/cuda.html#id5",
+        "path": "src\\lightning\\pytorch\\strategies\\ddp.py",
+        "index": 866
+      }
+    ],
+    "scores": [
+      0.5268041483133817,
+      0.5217529329370919,
+      0.5214351954559607,
+      0.5214351954559607,
+      0.5192340676546131
+    ],
+    "latency": 0.006354808807373047,
+    "method": "sentence-transformer"
+  }
+]
