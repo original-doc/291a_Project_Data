@@ -1,0 +1,95 @@
+[
+    {
+        "query": "Does pytorch-lightning support saving and loading models from remote cloud storage?",
+        "query_type": "doc_reference",
+        "relevant_docs": [
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/common/checkpointing_advanced.html",
+                "index": 9,
+                "text": "### Cloud checkpoints\nLightning is integrated with the major remote file systems including local filesystems and several cloud storage providers such as\nS3 on AWS, GCS on Google Cloud,\nor ADL on Azure.",
+                "score": 10
+            },
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/common/checkpointing_advanced.html",
+                "index": 9,
+                "text": "To save to a remote filesystem, prepend a protocol like \"s3:/\" to the root_dir used for writing and reading model data.",
+                "score": 9
+            },
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/common/checkpointing_advanced.html",
+                "index": 9,
+                "text": "To resume training from a cloud checkpoint use a cloud url.",
+                "score": 9
+            }
+        ]
+    },
+    {
+        "query": "How to figure out the slow part in the code?",
+        "query_type": "doc_reference",
+        "relevant_docs": [
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/tuning/profiler_basic.html",
+                "index": 57,
+                "text": "Profiling helps you find bottlenecks in your code by capturing analytics such as how long a function takes or how much memory is used.",
+                "score": 10
+            }
+        ]
+    },
+    {
+        "query": "Does lightning require using torch dataloader as the data loader?",
+        "query_type": "doc_reference",
+        "relevant_docs": [
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/starter/introduction.html",
+                "index": 53,
+                "text": "Lightning supports ANY iterable (~torch.utils.data.DataLoader, numpy, etc...) for the train/val/test/predict splits.",
+                "score": 10
+            }
+        ]
+    },
+    {
+        "query": "How much improvement can be expected when using half precision compared to full precision?",
+        "query_type": "doc_reference",
+        "relevant_docs": [
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/common/precision_basic.html",
+                "index": 23,
+                "text": "If your GPUs are [Tensor Core] GPUs, you can expect a ~3x speed improvement.",
+                "score": 10
+            },
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/common/precision_basic.html",
+                "index": 23,
+                "text": "Use 16-bit mixed precision to speed up training and inference.",
+                "score": 7
+            }
+        ]
+    },
+    {
+        "query": "Can I use two config files' configuration in one runtime?",
+        "query_type": "doc_reference",
+        "relevant_docs": [
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+                "index": 1,
+                "text": "### Compose config files\nMultiple config files can be provided, and they will be parsed sequentially.",
+                "score": 10
+            },
+            {
+                "file": "docs.json",
+                "entry_filename": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+                "index": 1,
+                "text": "Let's say we have two configs with common\nsettings:\n\n```yaml\n# config_1.yaml\ntrainer:\n  num_epochs: 10\n  ...\n\n# config_2.yaml\ntrainer:\n  num_epochs: 20\n  ...\n```\nThe value from the last config will be used, num_epochs = 20 in this case:\n\n```bash\n$ python main.py fit --config config_1.yaml --config config_2.yaml\n```",
+                "score": 8
+            }
+        ]
+    }
+]
