@@ -3,6 +3,11 @@
 FAISS retrieval for PyTorch Lightning dataset (structured text schema).
 Reads config from cfg.yaml, combines multiple JSON datasets, builds a FAISS index,
 and runs retrieval for queries loaded from the requests folder.
+
+cd baselines/faiss/
+python faiss_retrieval.py
+
+See cfg.yaml for configuration.
 """
 
 import json

@@ -1,4 +1,4 @@
-# FAISS retrieval configuration
+# Qdrant retrieval configuration
 
 # Datasets to combine as a single corpus (per-file parser optional)
 dataset_files:
@@ -9,28 +9,36 @@ dataset_files:
   - path: ../../data/final_data/discussions.json
     parser: discussion   # use DiscussionParser (title/body/answer)
 
-# Output directory for FAISS index and results
-output_dir: faiss_result/
+# Output directory for Qdrant results
+output_dir: qdrant_result/
 
 # Limit number of documents for quick runs (null means all)
 max_docs: null
 
-# Embedding settings: 'sentence-transformer' or 'tfidf'
-embedding: sentence-transformer
-model: all-MiniLM-L6-v2
+# Qdrant connection settings
+qdrant_url: http://localhost:6333
+collection_name: pytorch_lightning_graphcodebert
 
-# FAISS index type: 'flat', 'ivf', or 'hnsw'
-index_type: flat
+# Embedding settings: 'graphcodebert' or 'sentence-transformer'
+embedding: graphcodebert
+model: microsoft/graphcodebert-base
+
+# Search settings
+# Enable hybrid search (semantic + BM25)
+use_hybrid: true
+# Hybrid search weight for semantic (1-alpha for BM25)
+hybrid_alpha: 0.7
 
 # Number of results to retrieve per query
 k: 5
 
-# (deprecated) parse_structured_paths is no longer needed when using dataset_files
+# Batch size for encoding documents
+batch_size: 32
 
 # Query sources
 # Either list request files explicitly or specify a directory containing multiple json request files.
-# Using explicit files here based on the repository layout.
 request_paths:
   # - ../../requests/docs_request.json
   # - ../../requests/richa_requests.json
   - ../../requests/final_requests.json
+
