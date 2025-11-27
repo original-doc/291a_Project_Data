@@ -1017,7 +1017,7 @@ class PyTorchLightningDatasetBuilder:
             
             print(f"Saved {len(entities)} entities to {output_path}")
     
-    def save_rag_format(self, filename: str = "rag_dataset.json", 
+    def save_rag_format(self, filename: str = "src.json", 
                        path_filters: Optional[List[str]] = None):
         """Save entities in RAG-friendly format (single JSON file)."""
         output_path = self.output_dir / filename
@@ -1134,6 +1134,8 @@ Examples:
                        help="Split output by train/valid/test partitions")
     parser.add_argument('--path-filter', action='append', dest='path_filters',
                        help="Filter output to specific paths (can be used multiple times)")
+    parser.add_argument('--summary', action='store_true',
+                       help="Generate the statistic detail of the src dataset")
     
     args = parser.parse_args()
     
@@ -1177,9 +1179,12 @@ Examples:
     
     if args.output_format in ('rag', 'both'):
         builder.save_rag_format(path_filters=args.path_filters)
-    
+
     # Save summary
-    builder.save_summary()
+    if args.summary:
+        builder.save_summary()
+    
+    
     
     print(f"\n{'=' * 60}")
     print("DATASET BUILDING COMPLETE!")
