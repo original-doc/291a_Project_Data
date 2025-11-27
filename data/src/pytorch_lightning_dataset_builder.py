@@ -1017,7 +1017,7 @@ class PyTorchLightningDatasetBuilder:
             
             print(f"Saved {len(entities)} entities to {output_path}")
     
-    def save_rag_format(self, filename: str = "src.json", 
+    def save_rag_format(self, filename: str = "src_filtered_data.json", 
                        path_filters: Optional[List[str]] = None):
         """Save entities in RAG-friendly format (single JSON file)."""
         output_path = self.output_dir / filename
