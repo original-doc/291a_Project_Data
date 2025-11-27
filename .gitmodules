@@ -1,3 +1,6 @@
 [submodule "data/src/data/src/pytorch-lightning"]
 	path = data/src/data/src/pytorch-lightning
 	url = https://github.com/Lightning-AI/pytorch-lightning.git
+[submodule "data/src/pytorch-lightning"]
+	path = data/src/pytorch-lightning
+	url = https://github.com/Lightning-AI/pytorch-lightning.git
