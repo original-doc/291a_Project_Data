@@ -1,0 +1,36 @@
+# FAISS retrieval configuration
+
+# Datasets to combine as a single corpus (per-file parser optional)
+dataset_files:
+  - path: ../../data/final_data/src_filtered_data.json
+    parser: sourcecode   # source code (uses SourceCodeParser)
+  - path: ../../data/final_data/docs.splitted.json
+    parser: null         # treat as raw text
+  - path: ../../data/final_data/discussions.json
+    parser: discussion   # use DiscussionParser (title/body/answer)
+
+# Output directory for FAISS index and results
+output_dir: faiss_result/
+
+# Limit number of documents for quick runs (null means all)
+max_docs: null
+
+# Embedding settings: 'sentence-transformer' or 'tfidf'
+embedding: sentence-transformer
+model: all-MiniLM-L6-v2
+
+# FAISS index type: 'flat', 'ivf', or 'hnsw'
+index_type: flat
+
+# Number of results to retrieve per query
+k: 5
+
+# (deprecated) parse_structured_paths is no longer needed when using dataset_files
+
+# Query sources
+# Either list request files explicitly or specify a directory containing multiple json request files.
+# Using explicit files here based on the repository layout.
+request_paths:
+  # - ../../requests/docs_request.json
+  # - ../../requests/richa_requests.json
+  - ../../requests/final_requests.json

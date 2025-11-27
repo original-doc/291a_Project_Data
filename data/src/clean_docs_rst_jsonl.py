@@ -11,7 +11,7 @@ Incremental changes:
   - Convert reStructuredText section titles (overline/underline styles) to Markdown '#'-style headings.
   - Prior behavior kept: field slimming and optional saving of `code_blocks`.
 
-python src/clean_docs_rst_jsonl.py --in .\unfiltered_data\lightning_docs_rst.jsonl   --out .\final_data\lightning_docs_cleaned.json
+python src/clean_docs_rst_jsonl.py --in ./unfiltered_data/lightning_docs_rst.jsonl   --out ./final_data/docs.json
 """
 import argparse
 import json
@@ -35,7 +35,7 @@ RE_SUBST       = re.compile(r"\|[^|\s]+\|")             # |subst| -> (drop)
 RE_WS          = re.compile(r"\s+")
 
 # Heading adornment precedence for Markdown level mapping (left -> higher level)
-HEADING_ORDER = ['=', '#', '^', '"', '+', '-', ':', '.']
+HEADING_ORDER = ['#', '*', '=', '^', '"', '+', '-', ':', '.']
 
 def strip_orphan_lines(text: str) -> str:
     """Remove standalone ':orphan:' and hyperlink target lines like '.. _label:'."""
@@ -342,7 +342,7 @@ def main():
     ap.add_argument("--strip", dest="strip", type=str,
                     default=",".join(sorted(DEFAULT_STRIP_DIRECTIVES)),
                     help="Comma-separated directive names to strip entirely.")
-    ap.add_argument("--min-words", dest="min_words", type=int, default=10,
+    ap.add_argument("--min-words", dest="min_words", type=int, default=40,
                     help="Drop items with <min_words (and no code blocks). 0=disable.")
     ap.add_argument("--save-code-blocks", dest="save_code_blocks", action="store_true",
                     help="Include code_blocks in output entries when set.")
