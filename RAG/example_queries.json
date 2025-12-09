@@ -1,0 +1,62 @@
+[
+  {
+    "query_id": "q1",
+    "query": "How to define a training step in PyTorch Lightning?",
+    "relevant": ["code_training_step", "doc_training_step"],
+    "description": "Basic training step implementation"
+  },
+  {
+    "query_id": "q2",
+    "query": "How to configure optimizers in Lightning?",
+    "relevant": ["code_configure_optimizers", "doc_optimizers"],
+    "description": "Optimizer configuration"
+  },
+  {
+    "query_id": "q3",
+    "query": "How to use callbacks in PyTorch Lightning?",
+    "relevant": ["code_callbacks", "doc_callbacks"],
+    "description": "Callback system usage"
+  },
+  {
+    "query_id": "q4",
+    "query": "How to save and load model checkpoints?",
+    "relevant": ["code_checkpoint", "doc_checkpoint"],
+    "description": "Model checkpointing"
+  },
+  {
+    "query_id": "q5",
+    "query": "How to use distributed training with Lightning?",
+    "relevant": ["code_distributed", "doc_distributed"],
+    "description": "Multi-GPU training"
+  },
+  {
+    "query_id": "q6",
+    "query": "How to log metrics during training?",
+    "relevant": ["code_logging", "doc_logging"],
+    "description": "Metric logging"
+  },
+  {
+    "query_id": "q7",
+    "query": "How to implement validation step?",
+    "relevant": ["code_validation", "doc_validation"],
+    "description": "Validation implementation"
+  },
+  {
+    "query_id": "q8",
+    "query": "How to use Fabric for training?",
+    "relevant": ["code_fabric", "doc_fabric"],
+    "description": "Lightning Fabric usage"
+  },
+  {
+    "query_id": "q9",
+    "query": "How to handle data loading in Lightning?",
+    "relevant": ["code_dataloader", "doc_dataloader"],
+    "description": "DataLoader configuration"
+  },
+  {
+    "query_id": "q10",
+    "query": "How to use mixed precision training?",
+    "relevant": ["code_precision", "doc_precision"],
+    "description": "Mixed precision (16-bit) training"
+  }
+]

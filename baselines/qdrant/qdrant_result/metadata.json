@@ -1,0 +1,9 @@
+{
+  "timestamp_gmt": "2025-11-27 04:46:39",
+  "embedding_method": "graphcodebert",
+  "dimension": 768,
+  "num_documents": 309,
+  "collection_name": "pytorch_lightning_graphcodebert",
+  "use_hybrid": true,
+  "schema_version": "v2_structured_text"
+}
