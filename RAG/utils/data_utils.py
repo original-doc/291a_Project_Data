@@ -4,7 +4,6 @@ Handles data loading, configuration parsing, and common operations
 """
 
 import json
-import os
 import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
@@ -149,7 +148,32 @@ def load_src_data(config: Dict[str, Any]) -> List[CodeChunk]:
 def load_docs_data(config: Dict[str, Any]) -> List[DocChunk]:
     """Load and parse documentation data"""
     path = get_data_path(config, "docs")
-    raw_data = load_json_files(path)
+    raw_data: List[Dict[str, Any]] = []
+
+    # Support both a directory of JSON files and a single JSON file
+    if path.is_dir():
+        raw_data = load_json_files(path)
+    elif path.is_file():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = json.load(f)
+
+            if isinstance(content, list):
+                for item in content:
+                    # Track where this item came from for downstream debugging
+                    item.setdefault('_source_file', path.name)
+                raw_data = content
+            else:
+                content.setdefault('_source_file', path.name)
+                raw_data = [content]
+
+            logger.info(f"Loaded {len(raw_data)} documentation items from file {path}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing documentation JSON file {path}: {e}")
+        except Exception as e:
+            logger.error(f"Error loading documentation file {path}: {e}")
+    else:
+        logger.warning(f"Documentation path does not exist: {path}")
     
     chunks = []
     for idx, item in enumerate(raw_data):
@@ -173,7 +197,31 @@ def load_docs_data(config: Dict[str, Any]) -> List[DocChunk]:
 def load_discussion_data(config: Dict[str, Any]) -> List[DiscussionChunk]:
     """Load and parse GitHub discussion data"""
     path = get_data_path(config, "discussion")
-    raw_data = load_json_files(path)
+    raw_data: List[Dict[str, Any]] = []
+
+    # Support both a directory of JSON files and a single JSON file
+    if path.is_dir():
+        raw_data = load_json_files(path)
+    elif path.is_file():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = json.load(f)
+
+            if isinstance(content, list):
+                for item in content:
+                    item.setdefault('_source_file', path.name)
+                raw_data = content
+            else:
+                content.setdefault('_source_file', path.name)
+                raw_data = [content]
+
+            logger.info(f"Loaded {len(raw_data)} discussion items from file {path}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing discussion JSON file {path}: {e}")
+        except Exception as e:
+            logger.error(f"Error loading discussion file {path}: {e}")
+    else:
+        logger.warning(f"Discussion path does not exist: {path}")
     
     chunks = []
     for idx, item in enumerate(raw_data):

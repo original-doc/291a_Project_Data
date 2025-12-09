@@ -42,7 +42,6 @@ class RecursiveTextChunker:
         "\n### ",     # H3 headers
         "\n#### ",    # H4 headers
         "\n--- ",     # Section breaks
-        "\n.. code::", # RST code blocks
         "```",        # Markdown code blocks
         "\n\n",       # Paragraphs
         "\n",         # Lines
