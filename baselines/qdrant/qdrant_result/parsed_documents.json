@@ -1,0 +1,602 @@
+[
+  {
+    "index": 0,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli.html When running deep learning experiments, there are a couple of good practices that are recommended to follow:\n\n- Separate configuration from source code\n- Guarantee reproducibility of experiments\n\nImplementing a command line interface (CLI) makes it possible to execute an experiment from a shell terminal. By having\na CLI, there is a clear separation between the Python source code and what hyperparameters are used for a particular\nexperiment. If the CLI corresponds to a stable version of the code, reproducing an experiment can be achieved by\ninstalling the same version of the code plus dependencies and running with the same configuration (CLI arguments).\n\n----"
+  },
+  {
+    "index": 1,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced.html To run the CLI using a yaml config, do:\n\n```bash\npython main.py fit --config config.yaml\n```\nIndividual arguments can be given to override options in the config file:\n\n```bash\npython main.py fit --config config.yaml --trainer.max_epochs 100\n```\n----"
+  },
+  {
+    "index": 2,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced.html To ease experiment reporting and reproducibility, by default LightningCLI automatically saves the full YAML\nconfiguration in the log directory. After multiple fit runs with different hyperparameters, each one will have in its\nrespective log directory a config.yaml file. These files can be used to trivially reproduce an experiment, e.g.:\n\n```bash\npython main.py fit --config lightning_logs/version_7/config.yaml\n```\nThe automatic saving of the config is done by the special callback ~lightning.pytorch.cli.SaveConfigCallback.\nThis callback is automatically added to the Trainer. To disable the save of the config, instantiate LightningCLI\nwith save_config_callback=None.\n\nTo change the file name of the saved configs to e.g. name.yaml, do:\n\n.. code:: python\n\ncli = LightningCLI(..., save_config_kwargs={\"config_filename\": \"name.yaml\"})\nIt is also possible to extend the ~lightning.pytorch.cli.SaveConfigCallback class, for instance to additionally\nsave the config in a logger. An example of this is:\n\n```python\n    class LoggerSaveConfigCallback(SaveConfigCallback):\n        def save_config(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:\n            if isinstance(trainer.logger, Logger):\n                config = self.parser.dump(self.config, skip_none=False)  # Required for proper reproducibility\n                trainer.logger.log_hyperparams({\"config\": config})\n\n    cli = LightningCLI(..., save_config_callback=LoggerSaveConfigCallback)\n```\nIf you want to disable the standard behavior of saving the config to the log_dir, then you can either implement\n__init__ and call super().__init__(*args, save_to_log_dir=False, **kwargs) or instantiate the\nLightningCLI as:\n\n.. code:: python\n\ncli = LightningCLI(..., save_config_kwargs={\"save_to_log_dir\": False})\nThe save_config method is only called on rank zero. This allows to implement a custom save config without having\nto worry about ranks or race conditions. Since it only runs on rank zero, any collective call will make the process\nhang waiting for a broadcast. If you need to make collective calls, implement the setup method instead.\n----"
+  },
+  {
+    "index": 3,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced.html The --help option of the CLIs can be used to learn which configuration options are available and how to use them.\nHowever, writing a config from scratch can be time-consuming and error-prone. To alleviate this, the CLIs have the\n--print_config argument, which prints to stdout the configuration without running the command.\n\nFor a CLI implemented as LightningCLI(DemoModel, BoringDataModule), executing:\n\n```bash\npython main.py fit --print_config\n```\ngenerates a config with all default values like the following:\n\n```bash\nseed_everything: null\ntrainer:\n  logger: true\n  ...\nmodel:\n  out_dim: 10\n  learning_rate: 0.02\ndata:\n  data_dir: ./\nckpt_path: null\n```\nOther command line arguments can be given and considered in the printed configuration. A use case for this is CLIs that\naccept multiple models. By default, no model is selected, meaning the printed config will not include model settings. To\nget a config with the default values of a particular model would be:\n\n```bash\npython main.py fit --model DemoModel --print_config\n```\nwhich generates a config like:\n\n```bash\nseed_everything: null\ntrainer:\n  ...\nmodel:\n  class_path: lightning.pytorch.demos.boring_classes.DemoModel\n  init_args:\n    out_dim: 10\n    learning_rate: 0.02\nckpt_path: null\n```\nA standard procedure to run experiments can be:\n\n.. code:: bash\n\n# Print a configuration to have as reference\npython main.py fit --print_config > config.yaml\n# Modify the config to your liking - you can remove all default arguments\nnano config.yaml\n# Fit your model using the edited configuration\npython main.py fit --config config.yaml\nConfiguration items can be either simple Python objects such as int and str,\nor complex objects comprised of a class_path and init_args arguments. The class_path refers\nto the complete import path of the item class, while init_args are the arguments to be passed\nto the class constructor. For example, your model is defined as:\n\n```python\n# model.py\nclass MyModel(L.LightningModule):\n    def __init__(self, criterion: torch.nn.Module):\n        self.criterion = criterion\n```\nThen the config would be:\n\n```yaml\nmodel:\n  class_path: model.MyModel\n  init_args:\n    criterion:\n      class_path: torch.nn.CrossEntropyLoss\n      init_args:\n        reduction: mean\n    ...\n```\nLightningCLI uses jsonargparse under the hood for parsing\nconfiguration files and automatic creation of objects, so you don't need to do it yourself.\n\nLightning automatically registers all subclasses of ~lightning.pytorch.core.LightningModule,\nso the complete import path is not required for them and can be replaced by the class name.\nParsers make a best effort to determine the correct names and types that the parser should accept.\nHowever, there can be cases not yet supported or cases for which it would be impossible to support.\nTo somewhat overcome these limitations, there is a special key dict_kwargs that can be used\nto provide arguments that will not be validated during parsing, but will be used for class instantiation.\n\nFor example, then using the lightning.pytorch.profilers.PyTorchProfiler profiler,\nthe profile_memory argument has a type that is determined dynamically. As a result, it's not possible\nto know the expected type during parsing. To account for this, your config file should be set up like this:\n\n.. code:: yaml\n\ntrainer:\nprofiler:\nclass_path: lightning.pytorch.profilers.PyTorchProfiler\ndict_kwargs:\nprofile_memory: true\n----"
+  },
+  {
+    "index": 4,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced.html Multiple config files can be provided, and they will be parsed sequentially. Let's say we have two configs with common\nsettings:\n\n```yaml\n# config_1.yaml\ntrainer:\n  num_epochs: 10\n  ...\n\n# config_2.yaml\ntrainer:\n  num_epochs: 20\n  ...\n```\nThe value from the last config will be used, num_epochs = 20 in this case:\n\n```bash\n$ python main.py fit --config config_1.yaml --config config_2.yaml\n```\n----"
+  },
+  {
+    "index": 5,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced.html Groups of options can also be given as independent config files. For configs like:\n\n```yaml\n# trainer.yaml\nnum_epochs: 10\n\n# model.yaml\nout_dim: 7\n\n# data.yaml\ndata_dir: ./data\n```\na fit command can be run as:\n\n```bash\n$ python main.py fit --trainer trainer.yaml --model model.yaml --data data.yaml [...]\n```"
+  },
+  {
+    "index": 6,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html To customize arguments by subcommand, pass the config *before* the subcommand:\n\n```bash\n$ python main.py [before] [subcommand] [after]\n$ python main.py  ...         fit       ...\n```\nFor example, here we set the Trainer argument [max_steps = 100] for the full training routine and [max_steps = 10] for\ntesting:\n\n```bash\n# config.yaml\nfit:\n    trainer:\n        max_steps: 100\ntest:\n    trainer:\n        max_epochs: 10\n```\nnow you can toggle this behavior by subcommand:\n\n```bash\n# full routine with max_steps = 100\n$ python main.py --config config.yaml fit\n\n# test only with max_epochs = 10\n$ python main.py --config config.yaml test\n```\n----"
+  },
+  {
+    "index": 7,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html For certain enterprise workloads, Lightning CLI supports running from hosted configs:\n\n```bash\n$ python main.py [subcommand] --config s3://bucket/config.yaml\n```\nFor more options, refer to Remote filesystems <../common/remote_fs>.\n\n----"
+  },
+  {
+    "index": 8,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html For certain CI/CD systems, it's useful to pass in raw yaml config as environment variables:\n\n```bash\n$ python main.py fit --trainer \"$TRAINER_CONFIG\" --model \"$MODEL_CONFIG\" [...]\n```\n----"
+  },
+  {
+    "index": 9,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html The Lightning CLI can convert every possible CLI flag into an environment variable. To enable this, add to\nparser_kwargs the default_env argument:\n\n```python\ncli = LightningCLI(..., parser_kwargs={\"default_env\": True})\n```\nnow use the --help CLI flag with any subcommand:\n\n```bash\n$ python main.py fit --help\n```\nwhich will show you ALL possible environment variables that can be set:\n\n```bash\nusage: main.py [options] fit [-h] [-c CONFIG]\n                            ...\n\noptional arguments:\n...\nARG:   --model.out_dim OUT_DIM\nENV:   PL_FIT__MODEL__OUT_DIM\n                        (type: int, default: 10)\nARG:   --model.learning_rate LEARNING_RATE\nENV:   PL_FIT__MODEL__LEARNING_RATE\n                        (type: float, default: 0.02)\n```\nnow you can customize the behavior via environment variables:\n\n```bash\n# set the options via env vars\n$ export PL_FIT__MODEL__LEARNING_RATE=0.01\n$ export PL_FIT__MODEL__OUT_DIM=5\n\n$ python main.py fit\n```\n----"
+  },
+  {
+    "index": 10,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html To set a path to a config file of defaults, use the default_config_files argument:\n\ncli = LightningCLI(MyModel, MyDataModule, parser_kwargs={\"default_config_files\": [\"my_cli_defaults.yaml\"]})\nor if you want defaults per subcommand:\n\ncli = LightningCLI(MyModel, MyDataModule, parser_kwargs={\"fit\": {\"default_config_files\": [\"my_fit_defaults.yaml\"]}})\n----"
+  },
+  {
+    "index": 11,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_advanced_2.html In certain cases where multiple settings need to share a value, consider using variable interpolation. For instance:\n\n```yaml\nmodel:\n  encoder_layers: 12\n  decoder_layers:\n  - ${model.encoder_layers}\n  - 4\n```\nTo enable variable interpolation, first install omegaconf:\n\n```bash\npip install omegaconf\n```\nThen set omegaconf when instantiating the LightningCLI class:\n\n```python\ncli = LightningCLI(MyModel, parser_kwargs={\"parser_mode\": \"omegaconf\"})\n```\nAfter this, the CLI will automatically perform interpolation in yaml files:\n\n```bash\npython main.py --model.encoder_layers=12\n```\nFor more details about the interpolation support and its limitations, have a look at the `jsonargparse\n<https://jsonargparse.readthedocs.io/en/stable/#variable-interpolation>`__ and the `omegaconf\n<https://omegaconf.readthedocs.io/en/2.1_branch/usage.html#variable-interpolation>`__ documentations.\n\nThere are many use cases in which variable interpolation is not the correct approach. When a parameter **must\nalways** be derived from other settings, it shouldn't be up to the CLI user to do this in a config file. For\nexample, if the data and model both require batch_size and must be the same value, then\ncli_link_arguments should be used instead of interpolation."
+  },
+  {
+    "index": 12,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_expert.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_expert.html The init parameters of the ~lightning.pytorch.cli.LightningCLI class can be used to customize some things,\ne.g., the description of the tool, enabling parsing of environment variables, and additional arguments to instantiate\nthe trainer and configuration parser.\n\nNevertheless, the init arguments are not enough for many use cases. For this reason, the class is designed so that it\ncan be extended to customize different parts of the command line tool. The argument parser class used by\n~lightning.pytorch.cli.LightningCLI is ~lightning.pytorch.cli.LightningArgumentParser, which is an\nextension of python's argparse, thus adding arguments can be done using the add_argument method. In contrast to\nargparse, it has additional methods to add arguments. For example add_class_arguments add all arguments from the\ninit of a class. For more details, see the `respective documentation\n<https://jsonargparse.readthedocs.io/en/stable/#classes-methods-and-functions>`_.\n\nThe ~lightning.pytorch.cli.LightningCLI class has the\n~lightning.pytorch.cli.LightningCLI.add_arguments_to_parser method can be implemented to include more arguments.\nAfter parsing, the configuration is stored in the config attribute of the class instance. The\n~lightning.pytorch.cli.LightningCLI class also has two methods that can be used to run code before and after\nthe trainer runs: before_<subcommand> and after_<subcommand>. A realistic example of this would be to send an\nemail before and after the execution. The code for the fit subcommand would be something like this:\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.add_argument(\"--notification_email\", default=\"will@email.com\")\n\ndef before_fit(self):\nsend_email(address=self.config[\"notification_email\"], message=\"trainer.fit starting\")\n\ndef after_fit(self):\nsend_email(address=self.config[\"notification_email\"], message=\"trainer.fit finished\")\n\ncli = MyLightningCLI(MyModel)\nNote that the config object self.config is a namespace whose keys are global options or groups of options. It has\nthe same structure as the YAML format described previously. This means that the parameters used for instantiating the\ntrainer class can be found in self.config['fit']['trainer'].\n\nHave a look at the ~lightning.pytorch.cli.LightningCLI class API reference to learn about other methods\nthat can be extended to customize a CLI.\n----"
+  },
+  {
+    "index": 13,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_expert.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_expert.html As explained previously, any Lightning callback can be added by passing it through the command line or including it in\nthe config via class_path and init_args entries.\n\nHowever, certain callbacks **must** be coupled with a model so they are always present and configurable. This can be\nimplemented as follows:\n\nfrom lightning.pytorch.callbacks import EarlyStopping\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.add_lightning_class_args(EarlyStopping, \"my_early_stopping\")\nparser.set_defaults({\"my_early_stopping.monitor\": \"val_loss\", \"my_early_stopping.patience\": 5})\n\ncli = MyLightningCLI(MyModel)\nTo change the parameters for EarlyStopping in the config it would be:\n\n```yaml\nmodel:\n  ...\ntrainer:\n  ...\nmy_early_stopping:\n  patience: 5\n```\nThe example above overrides a default in add_arguments_to_parser. This is included to show that defaults can be\nchanged if needed. However, note that overriding defaults in the source code is not intended to be used to store the\nbest hyperparameters for a task after experimentation. To guarantee reproducibility, the source code should be\nstable. It is better to practice storing the best hyperparameters for a task in a configuration file independent\nfrom the source code.\n----"
+  },
+  {
+    "index": 14,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_expert.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_expert.html The support for classes as type hints allows to try many possibilities with the same CLI. This is a useful feature, but\nit is tempting to use an instance of a class as a default. For example:\n\nclass MyMainModel(LightningModule):\ndef __init__(\nself,\nbackbone: torch.nn.Module = MyModel(encoder_layers=24), # BAD PRACTICE!\n):\nsuper().__init__()\nself.backbone = backbone\nNormally classes are mutable, as in this case. The instance of MyModel would be created the moment that the module\nthat defines MyMainModel is first imported. This means that the default of backbone will be initialized before\nthe CLI class runs seed_everything, making it non-reproducible. Furthermore, if MyMainModel is used more than\nonce in the same Python process and the backbone parameter is not overridden, the same instance would be used in\nmultiple places. Most likely, this is not what the developer intended. Having an instance as default also makes it\nimpossible to generate the complete config file since it is not known which arguments were used to instantiate it for\narbitrary classes.\n\nAn excellent solution to these problems is not to have a default or set the default to a unique value (e.g., a string).\nThen check this value and instantiate it in the __init__ body. If a class parameter has no default and the CLI is\nsubclassed, then a default can be set as follows:\n\ndefault_backbone = {\n\"class_path\": \"import.path.of.MyModel\",\n\"init_args\": {\n\"encoder_layers\": 24,\n},\n}\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.set_defaults({\"model.backbone\": default_backbone})\nA more compact version that avoids writing a dictionary would be:\n\nfrom jsonargparse import lazy_instance\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.set_defaults({\"model.backbone\": lazy_instance(MyModel, encoder_layers=24)})\n----"
+  },
+  {
+    "index": 15,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_expert.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_expert.html Another case in which it might be desired to extend ~lightning.pytorch.cli.LightningCLI is that the model and\ndata module depends on a common parameter. For example, in some cases, both classes require to know the batch_size.\nIt is a burden and error-prone to give the same value twice in a config file. To avoid this, the parser can be\nconfigured so that a value is only given once and then propagated accordingly. With a tool implemented like the one\nshown below, the batch_size only has to be provided in the data section of the config.\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.link_arguments(\"data.batch_size\", \"model.batch_size\")\n\ncli = MyLightningCLI(MyModel, MyDataModule)\nThe linking of arguments is observed in the help of the tool, which for this example would look like:\n\n```bash\n$ python trainer.py fit --help\n  ...\n    --data.batch_size BATCH_SIZE\n                          Number of samples in a batch (type: int, default: 8)\n\n  Linked arguments:\n    data.batch_size --> model.batch_size\n                          Number of samples in a batch (type: int)\n```\nSometimes a parameter value is only available after class instantiation. An example could be that your model requires\nthe number of classes to instantiate its fully connected layer (for a classification task). But the value is not\navailable until the data module has been instantiated. The code below illustrates how to address this.\n\nclass MyLightningCLI(LightningCLI):\ndef add_arguments_to_parser(self, parser):\nparser.link_arguments(\"data.num_classes\", \"model.num_classes\", apply_on=\"instantiate\")\n\ncli = MyLightningCLI(MyClassModel, MyDataModule)\nInstantiation links are used to automatically determine the order of instantiation, in this case data first.\n\nThe linking of arguments is intended for things that are meant to be non-configurable. This improves the CLI user\nexperience since it avoids the need to provide more parameters. A related concept is a variable interpolation that\nkeeps things configurable.\nThe linking of arguments can be used for more complex cases. For example to derive a value via a function that takes\nmultiple settings as input. For more details have a look at the API of `link_arguments\n<https://jsonargparse.readthedocs.io/en/stable/#jsonargparse.ArgumentLinking.link_arguments>`_."
+  },
+  {
+    "index": 16,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html CLI is short for command line interface. This means it is a tool intended to be run from a terminal, similar to commands\nlike git.\n\n----"
+  },
+  {
+    "index": 17,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html A YAML is a standard for configuration files used to describe parameters for sections of a program. It is a common tool\nin engineering and has recently started to gain popularity in machine learning. An example of a YAML file is the\nfollowing:\n\n```yaml\n# file.yaml\ncar:\n    max_speed:100\n    max_passengers:2\nplane:\n    fuel_capacity: 50\nclass_3:\n    option_1: 'x'\n    option_2: 'y'\n```\nIf you are unfamiliar with YAML, the short introduction at `realpython.com#yaml-syntax\n<https://realpython.com/python-yaml/#yaml-syntax>`__ might be a good starting point.\n\n----"
+  },
+  {
+    "index": 18,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html A subcommand is what is the action the LightningCLI applies to the script:\n\n```bash\npython main.py [subcommand]\n```\nSee the Potential subcommands with:\n\n```bash\npython main.py --help\n```\nwhich prints:\n\n```bash\n    ...\n\n    fit                 Runs the full optimization routine.\n    validate            Perform one evaluation epoch over the validation set.\n    test                Perform one evaluation epoch over the test set.\n    predict             Run inference on your data.\n```\nuse a subcommand as follows:\n\n```bash\npython main.py fit\npython main.py test\n```\n----"
+  },
+  {
+    "index": 19,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html ~lightning.pytorch.cli.LightningCLI makes use of jsonargparse_\nwhich is an extension of argparse_. Due to this,\n~lightning.pytorch.cli.LightningCLI follows the same arguments style as many POSIX command line tools. Long\noptions are prefixed with two dashes and its corresponding values are separated by space or an equal sign, as ``--option\nvalue or --option=value``. Command line options are parsed from left to right, therefore if a setting appears\nmultiple times, the value most to the right will override the previous ones.\n\n----"
+  },
+  {
+    "index": 20,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html The final configuration of CLIs implemented with ~lightning.pytorch.cli.LightningCLI can depend on default\nconfig files (if defined), environment variables (if enabled) and command line arguments. The override order between\nthese is the following:\n\n1. Defaults defined in the source code.\n2. Existing default config files in the order defined in default_config_files, e.g. ~/.myapp.yaml.\n3. Entire config environment variable, e.g. PL_FIT__CONFIG.\n4. Individual argument environment variables, e.g. PL_FIT__SEED_EVERYTHING.\n5. Command line arguments in order left to right (might include config files).\n\n----"
+  },
+  {
+    "index": 21,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_faq.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_faq.html The standard behavior for CLIs, when they fail, is to terminate the process with a non-zero exit code and a short\nmessage to hint the user about the cause. This is problematic while developing the CLI since there is no information to\ntrack down the root of the problem. To troubleshoot set the environment variable JSONARGPARSE_DEBUG to any value\nbefore running the CLI:\n\n```bash\nexport JSONARGPARSE_DEBUG=true\npython main.py fit\n```\nWhen asking about problems and reporting issues, please set the JSONARGPARSE_DEBUG and include the stack trace\nin your description. With this, users are more likely to help identify the cause without needing to create a\nreproducible script."
+  },
+  {
+    "index": 22,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate.html The ~lightning.pytorch.cli.LightningCLI class is designed to significantly ease the implementation of CLIs. To\nuse this class, an additional Python requirement is necessary than the minimal installation of Lightning provides. To\nenable, either install all extras:\n\n```bash\npip install \"lightning[pytorch-extra]\"\n```\nor if only interested in LightningCLI, just install jsonargparse:\n\n```bash\npip install \"jsonargparse[signatures]\"\n```\n----"
+  },
+  {
+    "index": 23,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate.html Implementing a CLI is as simple as instantiating a ~lightning.pytorch.cli.LightningCLI object giving as\narguments classes for a LightningModule and optionally a LightningDataModule:\n\n```python\n# main.py\nfrom lightning.pytorch.cli import LightningCLI\n\n# simple demo classes for your convenience\nfrom lightning.pytorch.demos.boring_classes import DemoModel, BoringDataModule\n\ndef cli_main():\n    cli = LightningCLI(DemoModel, BoringDataModule)\n    # note: don't call fit!!\n\nif __name__ == \"__main__\":\n    cli_main()\n    # note: it is good practice to implement the CLI in a function and call it in the main if block\n```\nNow your model can be managed via the CLI. To see the available commands type:\n\n```bash\n$ python main.py --help\n```\nwhich prints out:\n\n```bash\nusage: main.py [-h] [-c CONFIG] [--print_config [={comments,skip_null,skip_default}+]]\n        {fit,validate,test,predict} ...\n\nLightning Trainer command line tool\n\noptional arguments:\n-h, --help            Show this help message and exit.\n-c CONFIG, --config CONFIG\n                        Path to a configuration file in json or yaml format.\n--print_config [={comments,skip_null,skip_default}+]\n                        Print configuration and exit.\n\nsubcommands:\nFor more details of each subcommand add it as argument followed by --help.\n\n{fit,validate,test,predict}\n    fit                 Runs the full optimization routine.\n    validate            Perform one evaluation epoch over the validation set.\n    test                Perform one evaluation epoch over the test set.\n    predict             Run inference on your data.\n```\nThe message tells us that we have a few available subcommands:\n\n```bash\npython main.py [subcommand]\n```\nwhich you can use depending on your use case:\n\n```bash\n$ python main.py fit\n$ python main.py validate\n$ python main.py test\n$ python main.py predict\n```\n----"
+  },
+  {
+    "index": 24,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate.html To train a model, use the fit subcommand:\n\n```bash\npython main.py fit\n```\nView all available options with the --help argument given after the subcommand:\n\n```bash\n$ python main.py fit --help\n\nusage: main.py [options] fit [-h] [-c CONFIG]\n                            [--seed_everything SEED_EVERYTHING] [--trainer CONFIG]\n                            ...\n                            [--ckpt_path CKPT_PATH]\n    --trainer.logger LOGGER\n\noptional arguments:\n<class '__main__.DemoModel'>:\n    --model.out_dim OUT_DIM\n                            (type: int, default: 10)\n    --model.learning_rate LEARNING_RATE\n                            (type: float, default: 0.02)\n<class 'lightning.pytorch.demos.boring_classes.BoringDataModule'>:\n--data CONFIG         Path to a configuration file.\n--data.data_dir DATA_DIR\n                        (type: str, default: ./)\n```\nWith the Lightning CLI enabled, you can now change the parameters without touching your code:\n\n```bash\n# change the learning_rate\npython main.py fit --model.learning_rate 0.1\n\n# change the output dimensions also\npython main.py fit --model.out_dim 10 --model.learning_rate 0.1\n\n# change trainer and data arguments too\npython main.py fit --model.out_dim 2 --model.learning_rate 0.1 --data.data_dir '~/' --trainer.logger False\n```\nThe options that become available in the CLI are the __init__ parameters of the LightningModule and\nLightningDataModule classes. Thus, to make hyperparameters configurable, just add them to your class's\n__init__. It is highly recommended that these parameters are described in the docstring so that the CLI shows\nthem in the help. Also, the parameters should have accurate type hints so that the CLI can fail early and give\nunderstandable error messages when incorrect values are given."
+  },
+  {
+    "index": 25,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html Lightning projects usually begin with one model and one dataset. As the project grows in complexity and you introduce\nmore models and more datasets, it becomes desirable to mix any model with any dataset directly from the command line\nwithout changing your code.\n\n```bash\n# Mix and match anything\n$ python main.py fit --model=GAN --data=MNIST\n$ python main.py fit --model=Transformer --data=MNIST\n```\nLightningCLI makes this very simple. Otherwise, this kind of configuration requires a significant amount of\nboilerplate that often looks like this:\n\n```python\n# choose model\nif args.model == \"gan\":\n    model = GAN(args.feat_dim)\nelif args.model == \"transformer\":\n    model = Transformer(args.feat_dim)\n...\n\n# choose datamodule\nif args.data == \"MNIST\":\n    datamodule = MNIST()\nelif args.data == \"imagenet\":\n    datamodule = Imagenet()\n...\n\n# mix them!\ntrainer.fit(model, datamodule)\n```\nIt is highly recommended that you avoid writing this kind of boilerplate and use LightningCLI instead.\n\n----"
+  },
+  {
+    "index": 26,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html To support multiple models, when instantiating LightningCLI omit the model_class parameter:\n\n```python\n# main.py\nfrom lightning.pytorch.cli import LightningCLI\nfrom lightning.pytorch.demos.boring_classes import DemoModel, BoringDataModule\n\nclass Model1(DemoModel):\n    def configure_optimizers(self):\n        print(\"\u26a1\", \"using Model1\", \"\u26a1\")\n        return super().configure_optimizers()\n\nclass Model2(DemoModel):\n    def configure_optimizers(self):\n        print(\"\u26a1\", \"using Model2\", \"\u26a1\")\n        return super().configure_optimizers()\n\ncli = LightningCLI(datamodule_class=BoringDataModule)\n```\nNow you can choose between any model from the CLI:\n\n```bash\n# use Model1\npython main.py fit --model Model1\n\n# use Model2\npython main.py fit --model Model2\n```\nInstead of omitting the model_class parameter, you can give a base class and subclass_mode_model=True. This\nwill make the CLI only accept models which are a subclass of the given base class.\n----"
+  },
+  {
+    "index": 27,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html To support multiple data modules, when instantiating LightningCLI omit the datamodule_class parameter:\n\n```python\n# main.py\nimport torch\nfrom lightning.pytorch.cli import LightningCLI\nfrom lightning.pytorch.demos.boring_classes import DemoModel, BoringDataModule\n\nclass FakeDataset1(BoringDataModule):\n    def train_dataloader(self):\n        print(\"\u26a1\", \"using FakeDataset1\", \"\u26a1\")\n        return torch.utils.data.DataLoader(self.random_train)\n\nclass FakeDataset2(BoringDataModule):\n    def train_dataloader(self):\n        print(\"\u26a1\", \"using FakeDataset2\", \"\u26a1\")\n        return torch.utils.data.DataLoader(self.random_train)\n\ncli = LightningCLI(DemoModel)\n```\nNow you can choose between any dataset at runtime:\n\n```bash\n# use Model1\npython main.py fit --data FakeDataset1\n\n# use Model2\npython main.py fit --data FakeDataset2\n```\nInstead of omitting the datamodule_class parameter, you can give a base class and subclass_mode_data=True.\nThis will make the CLI only accept data modules that are a subclass of the given base class.\n----"
+  },
+  {
+    "index": 28,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html Standard optimizers from torch.optim work out of the box:\n\n```bash\npython main.py fit --optimizer AdamW\n```\nIf the optimizer you want needs other arguments, add them via the CLI (no need to change your code)!\n\n```bash\npython main.py fit --optimizer SGD --optimizer.lr=0.01\n```\nFurthermore, any custom subclass of torch.optim.Optimizer can be used as an optimizer:\n\n```python\n# main.py\nimport torch\nfrom lightning.pytorch.cli import LightningCLI\nfrom lightning.pytorch.demos.boring_classes import DemoModel, BoringDataModule\n\nclass LitAdam(torch.optim.Adam):\n    def step(self, closure):\n        print(\"\u26a1\", \"using LitAdam\", \"\u26a1\")\n        super().step(closure)\n\nclass FancyAdam(torch.optim.Adam):\n    def step(self, closure):\n        print(\"\u26a1\", \"using FancyAdam\", \"\u26a1\")\n        super().step(closure)\n\ncli = LightningCLI(DemoModel, BoringDataModule)\n```\nNow you can choose between any optimizer at runtime:\n\n```bash\n# use LitAdam\npython main.py fit --optimizer LitAdam\n\n# use FancyAdam\npython main.py fit --optimizer FancyAdam\n```\n----"
+  },
+  {
+    "index": 29,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html Standard learning rate schedulers from torch.optim.lr_scheduler work out of the box:\n\n```bash\npython main.py fit --optimizer=Adam --lr_scheduler CosineAnnealingLR\n```\nPlease note that --optimizer must be added for --lr_scheduler to have an effect.\n\nIf the scheduler you want needs other arguments, add them via the CLI (no need to change your code)!\n\n```bash\npython main.py fit --optimizer=Adam --lr_scheduler=ReduceLROnPlateau --lr_scheduler.monitor=epoch\n```\nFurthermore, any custom subclass of torch.optim.lr_scheduler.LRScheduler can be used as learning rate scheduler:\n\n```python\n# main.py\nimport torch\nfrom lightning.pytorch.cli import LightningCLI\nfrom lightning.pytorch.demos.boring_classes import DemoModel, BoringDataModule\n\nclass LitLRScheduler(torch.optim.lr_scheduler.CosineAnnealingLR):\n    def step(self):\n        print(\"\u26a1\", \"using LitLRScheduler\", \"\u26a1\")\n        super().step()\n\ncli = LightningCLI(DemoModel, BoringDataModule)\n```\nNow you can choose between any learning rate scheduler at runtime:\n\n```bash\n# LitLRScheduler\npython main.py fit --optimizer=Adam --lr_scheduler LitLRScheduler\n```\n----"
+  },
+  {
+    "index": 30,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html In the previous sections, custom classes to select were defined in the same python file where the LightningCLI class\nis run. To select classes from any package by using only the class name, import the respective package:\n\n```python\nfrom lightning.pytorch.cli import LightningCLI\nimport my_code.models  # noqa: F401\nimport my_code.data_modules  # noqa: F401\nimport my_code.optimizers  # noqa: F401\n\ncli = LightningCLI()\n```\nNow use any of the classes:\n\n```bash\npython main.py fit --model Model1 --data FakeDataset1 --optimizer LitAdam --lr_scheduler LitLRScheduler\n```\nThe # noqa: F401 comment avoids a linter warning that the import is unused.\n\nIt is also possible to select subclasses that have not been imported by giving the full import path:\n\n```bash\npython main.py fit --model my_code.models.Model1\n```\n----"
+  },
+  {
+    "index": 31,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html",
+    "text": "docs/pytorch/stable/cli/lightning_cli_intermediate_2.html When multiple models or datasets are accepted, the main help of the CLI does not include their specific parameters. To\nshow this specific help, additional help arguments expect the class name or its import path. For example:\n\n```bash\npython main.py fit --model.help Model1\npython main.py fit --data.help FakeDataset2\npython main.py fit --optimizer.help Adagrad\npython main.py fit --lr_scheduler.help StepLR\n```"
+  },
+  {
+    "index": 32,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_advanced.html",
+    "text": "docs/pytorch/stable/common/checkpointing_advanced.html Lightning is integrated with the major remote file systems including local filesystems and several cloud storage providers such as\nS3 on AWS, GCS on Google Cloud,\nor ADL on Azure.\n\nPyTorch Lightning uses fsspec internally to handle all filesystem operations.\n\n----"
+  },
+  {
+    "index": 33,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_advanced.html",
+    "text": "docs/pytorch/stable/common/checkpointing_advanced.html To save to a remote filesystem, prepend a protocol like \"s3:/\" to the root_dir used for writing and reading model data.\n\n```python\n# `default_root_dir` is the default path used for logs and checkpoints\ntrainer = Trainer(default_root_dir=\"s3://my_bucket/data/\")\ntrainer.fit(model)\n```\n----"
+  },
+  {
+    "index": 34,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_advanced.html",
+    "text": "docs/pytorch/stable/common/checkpointing_advanced.html To resume training from a cloud checkpoint use a cloud url.\n\n```python\ntrainer = Trainer(default_root_dir=tmpdir, max_steps=3)\ntrainer.fit(model, ckpt_path=\"s3://my_bucket/ckpts/classifier.ckpt\")\n```\nPyTorch Lightning uses fsspec internally to handle all filesystem operations."
+  },
+  {
+    "index": 35,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html When a model is training, the performance changes as it continues to see more data. It is a best practice to save the state of a model throughout the training process. This gives you a version of the model, *a checkpoint*, at each key point during the development of the model. Once training has completed, use the checkpoint that corresponds to the best performance you found during the training process.\n\nCheckpoints also enable your training to resume from where it was in case the training process is interrupted.\n\nPyTorch Lightning checkpoints are fully usable in plain PyTorch.\n\n----\n\n**Important Update: Deprecated Method**\n\nStarting from PyTorch Lightning v1.0.0, the `resume_from_checkpoint` argument has been deprecated. To resume training from a checkpoint, use the `ckpt_path` argument in the `fit()` method.\nPlease update your code accordingly to avoid potential compatibility issues."
+  },
+  {
+    "index": 36,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html A Lightning checkpoint contains a dump of the model's entire internal state. Unlike plain PyTorch, Lightning saves *everything* you need to restore a model even in the most complex distributed training environments.\n\nInside a Lightning checkpoint you'll find:\n\n- 16-bit scaling factor (if using 16-bit precision training)\n- Current epoch\n- Global step\n- LightningModule's state_dict\n- State of all optimizers\n- State of all learning rate schedulers\n- State of all callbacks (for stateful callbacks)\n- State of datamodule (for stateful datamodules)\n- The hyperparameters (init arguments) with which the model was created\n- The hyperparameters (init arguments) with which the datamodule was created\n- State of Loops\n\n----"
+  },
+  {
+    "index": 37,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html Lightning automatically saves a checkpoint for you in your current working directory, with the state of your last training epoch. This makes sure you can resume training in case it was interrupted.\n\n```python\n# simply by using the Trainer you get automatic checkpointing\ntrainer = Trainer()\n```"
+  },
+  {
+    "index": 38,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html The location where checkpoints are saved depends on whether you have configured a logger:\n\n**Without a logger**, checkpoints are saved to the default_root_dir:\n\n```python\n# saves checkpoints to 'some/path/checkpoints/'\ntrainer = Trainer(default_root_dir=\"some/path/\", logger=False)\n```\n**With a logger**, checkpoints are saved to the logger's directory, **not** to default_root_dir:\n\n```python\nfrom lightning.pytorch.loggers import CSVLogger\n\n# checkpoints will be saved to 'logs/my_experiment/version_0/checkpoints/'\n# NOT to 'some/path/checkpoints/'\ntrainer = Trainer(\n    default_root_dir=\"some/path/\",  # This will be ignored for checkpoints!\n    logger=CSVLogger(\"logs\", \"my_experiment\")\n)\n```\nTo explicitly control the checkpoint location when using a logger, use the\n~lightning.pytorch.callbacks.ModelCheckpoint callback:\n\n```python\nfrom lightning.pytorch.callbacks import ModelCheckpoint\n\n# explicitly set checkpoint directory\ncheckpoint_callback = ModelCheckpoint(dirpath=\"my/custom/checkpoint/path/\")\ntrainer = Trainer(\n    logger=CSVLogger(\"logs\", \"my_experiment\"),\n    callbacks=[checkpoint_callback]\n)\n```\n----"
+  },
+  {
+    "index": 39,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html To load a LightningModule along with its weights and hyperparameters use the following method:\n\n```python\nmodel = MyLightningModule.load_from_checkpoint(\"/path/to/checkpoint.ckpt\")\n\n# disable randomness, dropout, etc...\nmodel.eval()\n\n# predict with the model\ny_hat = model(x)\n```\n----"
+  },
+  {
+    "index": 40,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html The LightningModule allows you to automatically save all the hyperparameters passed to *init* simply by calling *self.save_hyperparameters()*.\n\n```python\nclass MyLightningModule(LightningModule):\n    def __init__(self, learning_rate, another_parameter, *args, **kwargs):\n        super().__init__()\n        self.save_hyperparameters()\n```\nThe hyperparameters are saved to the \"hyper_parameters\" key in the checkpoint\n\n```python\ncheckpoint = torch.load(checkpoint, map_location=lambda storage, loc: storage)\nprint(checkpoint[\"hyper_parameters\"])\n# {\"learning_rate\": the_value, \"another_parameter\": the_other_value}\n```\nThe LightningModule also has access to the Hyperparameters\n\n```python\nmodel = MyLightningModule.load_from_checkpoint(\"/path/to/checkpoint.ckpt\")\nprint(model.hparams.learning_rate)\n```\n----"
+  },
+  {
+    "index": 41,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html If you used the *self.save_hyperparameters()* method in the *__init__* method of the LightningModule, you can override these and initialize the model with different hyperparameters.\n\n```python\n# if you train and save the model like this it will use these values when loading\n# the weights. But you can overwrite this\nLitModel(in_dim=32, out_dim=10)\n\n# uses in_dim=32, out_dim=10\nmodel = LitModel.load_from_checkpoint(PATH)\n\n# uses in_dim=128, out_dim=10\nmodel = LitModel.load_from_checkpoint(PATH, in_dim=128, out_dim=10)\n```\nIn some cases, we may also pass entire PyTorch modules to the __init__ method, which you don't want to save as hyperparameters due to their large size. If you didn't call self.save_hyperparameters() or ignore parameters via save_hyperparameters(ignore=...), then you must pass the missing positional arguments or keyword arguments when calling load_from_checkpoint method:\n\n```python\nclass LitAutoencoder(L.LightningModule):\n    def __init__(self, encoder, decoder):\n        ...\n\n    ...\n\nmodel = LitAutoEncoder.load_from_checkpoint(PATH, encoder=encoder, decoder=decoder)\n```\n----"
+  },
+  {
+    "index": 42,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html Lightning checkpoints are fully compatible with plain torch nn.Modules.\n\n```python\ncheckpoint = torch.load(CKPT_PATH)\nprint(checkpoint.keys())\n```\nFor example, let's pretend we created a LightningModule like so:\n\n```python\nclass Encoder(nn.Module):\n    ...\n\nclass Decoder(nn.Module):\n    ...\n\nclass Autoencoder(L.LightningModule):\n    def __init__(self, encoder, decoder, *args, **kwargs):\n        super().__init__()\n        self.encoder = encoder\n        self.decoder = decoder\n\nautoencoder = Autoencoder(Encoder(), Decoder())\n```\nOnce the autoencoder has trained, pull out the relevant weights for your torch nn.Module:\n\n```python\ncheckpoint = torch.load(CKPT_PATH)\nencoder_weights = {k: v for k, v in checkpoint[\"state_dict\"].items() if k.startswith(\"encoder.\")}\ndecoder_weights = {k: v for k, v in checkpoint[\"state_dict\"].items() if k.startswith(\"decoder.\")}\n```\n----"
+  },
+  {
+    "index": 43,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html You can disable checkpointing by passing:\n\ntrainer = Trainer(enable_checkpointing=False)\n----"
+  },
+  {
+    "index": 44,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_basic.html",
+    "text": "docs/pytorch/stable/common/checkpointing_basic.html If you don't just want to load weights, but instead restore the full training, do the following:\n\nCorrect usage:\n\n```python\nmodel = LitModel()\ntrainer = Trainer()\n\n# automatically restores model, epoch, step, LR schedulers, etc...\ntrainer.fit(model, ckpt_path=\"path/to/your/checkpoint.ckpt\")\n```\nThe argument `resume_from_checkpoint` has been deprecated in versions of PyTorch Lightning >= 1.0.0.\nTo resume training from a checkpoint, use the `ckpt_path` argument in the `fit()` method instead.\nIncorrect (deprecated) usage:\n\n```python\ntrainer = Trainer(resume_from_checkpoint=\"path/to/your/checkpoint.ckpt\")\ntrainer.fit(model)\n```"
+  },
+  {
+    "index": 45,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_expert.html",
+    "text": "docs/pytorch/stable/common/checkpointing_expert.html The distributed checkpoint format can be enabled when you train with the FSDP strategy <../advanced/model_parallel/fsdp>.\n\n```python\nimport lightning as L\nfrom lightning.pytorch.strategies import FSDPStrategy\n\n# 1. Select the FSDP strategy and set the sharded/distributed checkpoint format\nstrategy = FSDPStrategy(state_dict_type=\"sharded\")\n\n# 2. Pass the strategy to the Trainer\ntrainer = L.Trainer(devices=2, strategy=strategy, ...)\n\n# 3. Run the trainer\ntrainer.fit(model)\n```\nWith state_dict_type=\"sharded\", each process/GPU will save its own file into a folder at the given path.\nThis reduces memory peaks and speeds up the saving to disk.\n\n.. code-block:: python\n\nimport lightning as L\nfrom lightning.pytorch.strategies import FSDPStrategy\nfrom lightning.pytorch.demos import LightningTransformer\n\nmodel = LightningTransformer()\n\nstrategy = FSDPStrategy(state_dict_type=\"sharded\")\ntrainer = L.Trainer(\naccelerator=\"cuda\",\ndevices=4,\nstrategy=strategy,\nmax_steps=3,\n)\ntrainer.fit(model)\n\nCheck the contents of the checkpoint folder:\n\n.. code-block:: bash\n\nls -a lightning_logs/version_0/checkpoints/epoch=0-step=3.ckpt/\n\n.. code-block::\n\nepoch=0-step=3.ckpt/\n\u251c\u2500\u2500 __0_0.distcp\n\u251c\u2500\u2500 __1_0.distcp\n\u251c\u2500\u2500 __2_0.distcp\n\u251c\u2500\u2500 __3_0.distcp\n\u251c\u2500\u2500 .metadata\n\u2514\u2500\u2500 meta.pt\n\nThe .distcp files contain the tensor shards from each process/GPU. You can see that the size of these files\nis roughly 1/4 of the total size of the checkpoint since the script distributes the model across 4 GPUs.\n----"
+  },
+  {
+    "index": 46,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_expert.html",
+    "text": "docs/pytorch/stable/common/checkpointing_expert.html You can easily load a distributed checkpoint in Trainer if your script uses FSDP <../advanced/model_parallel/fsdp>.\n\n```python\nimport lightning as L\nfrom lightning.pytorch.strategies import FSDPStrategy\n\n# 1. Select the FSDP strategy and set the sharded/distributed checkpoint format\nstrategy = FSDPStrategy(state_dict_type=\"sharded\")\n\n# 2. Pass the strategy to the Trainer\ntrainer = L.Trainer(devices=2, strategy=strategy, ...)\n\n# 3. Set the checkpoint path to load\ntrainer.fit(model, ckpt_path=\"path/to/checkpoint\")\n```\nNote that you can load the distributed checkpoint even if the world size has changed, i.e., you are running on a different number of GPUs than when you saved the checkpoint.\n\n.. code-block:: python\n\nimport lightning as L\nfrom lightning.pytorch.strategies import FSDPStrategy\nfrom lightning.pytorch.demos import LightningTransformer\n\nmodel = LightningTransformer()\n\nstrategy = FSDPStrategy(state_dict_type=\"sharded\")\ntrainer = L.Trainer(\naccelerator=\"cuda\",\ndevices=2,\nstrategy=strategy,\nmax_steps=5,\n)\ntrainer.fit(model, ckpt_path=\"lightning_logs/version_0/checkpoints/epoch=0-step=3.ckpt\")\nIf you want to load a distributed checkpoint into a script that doesn't use FSDP (or Trainer at all), then you will have to convert it to a single-file checkpoint first <Convert dist-checkpoint>.\n----\n\n.. _Convert dist-checkpoint:"
+  },
+  {
+    "index": 47,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_expert.html",
+    "text": "docs/pytorch/stable/common/checkpointing_expert.html It is possible to convert a distributed checkpoint to a regular, single-file checkpoint with this utility:\n\n```bash\npython -m lightning.pytorch.utilities.consolidate_checkpoint path/to/my/checkpoint\n```\nYou will need to do this for example if you want to load the checkpoint into a script that doesn't use FSDP, or need to export the checkpoint to a different format for deployment, evaluation, etc.\n\nAll tensors in the checkpoint will be converted to CPU tensors, and no GPUs are required to run the conversion command.\nThis function assumes you have enough free CPU memory to hold the entire checkpoint in memory.\nAssuming you have saved a checkpoint epoch=0-step=3.ckpt using the examples above, run the following command to convert it:\n\n.. code-block:: bash\n\ncd lightning_logs/version_0/checkpoints\npython -m lightning.pytorch.utilities.consolidate_checkpoint epoch=0-step=3.ckpt\n\nThis saves a new file epoch=0-step=3.ckpt.consolidated next to the sharded checkpoint which you can load normally in PyTorch:\n\n.. code-block:: python\n\nimport torch\n\ncheckpoint = torch.load(\"epoch=0-step=3.ckpt.consolidated\")\nprint(list(checkpoint.keys()))\nprint(checkpoint[\"state_dict\"][\"model.transformer.decoder.layers.31.norm1.weight\"])\n|"
+  },
+  {
+    "index": 48,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_migration.html",
+    "text": "docs/pytorch/stable/common/checkpointing_migration.html Next to the model weights and trainer state, a Lightning checkpoint contains the version number of Lightning with which the checkpoint was saved.\nWhen you load a checkpoint file, either by resuming training\n\n```python\ntrainer = Trainer(...)\ntrainer.fit(model, ckpt_path=\"path/to/checkpoint.ckpt\")\n```\nor by loading the state directly into your model,\n\n```python\nmodel = LitModel.load_from_checkpoint(\"path/to/checkpoint.ckpt\")\n```\nLightning will automatically recognize that it is from an older version and migrates the internal structure so it can be loaded properly.\nThis is done without any action required by the user.\n\n----"
+  },
+  {
+    "index": 49,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/checkpointing_migration.html",
+    "text": "docs/pytorch/stable/common/checkpointing_migration.html When Lightning loads a checkpoint, it applies the version migration on-the-fly as explained above, but it does not modify your checkpoint files.\nYou can upgrade checkpoint files permanently with the following command\n\n```\npython -m lightning.pytorch.utilities.upgrade_checkpoint path/to/model.ckpt\n```\nor a folder with multiple files:\n\n```\npython -m lightning.pytorch.utilities.upgrade_checkpoint /path/to/checkpoints/folder\n```"
+  },
+  {
+    "index": 50,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/console_logs.html",
+    "text": "docs/pytorch/stable/common/console_logs.html Lightning logs useful information about the training process and user warnings to the console.\nYou can retrieve the Lightning console logger and change it to your liking. For example, adjust the logging level\nor redirect output for certain modules to log files:\n\nimport logging\n\n# configure logging at the root level of Lightning\nlogging.getLogger(\"lightning.pytorch\").setLevel(logging.ERROR)\n\n# configure logging on module level, redirect to file\nlogger = logging.getLogger(\"lightning.pytorch.core\")\nlogger.addHandler(logging.FileHandler(\"core.log\"))\nRead more about custom Python logging here."
+  },
+  {
+    "index": 51,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/early_stopping.html",
+    "text": "docs/pytorch/stable/common/early_stopping.html You can stop and skip the rest of the current epoch early by overriding ~lightning.pytorch.core.hooks.ModelHooks.on_train_batch_start to return -1 when some condition is met.\n\nIf you do this repeatedly, for every epoch you had originally requested, then this will stop your entire training."
+  },
+  {
+    "index": 52,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/early_stopping.html",
+    "text": "docs/pytorch/stable/common/early_stopping.html The ~lightning.pytorch.callbacks.early_stopping.EarlyStopping callback can be used to monitor a metric and stop the training when no improvement is observed.\n\nTo enable it:\n\n- Import ~lightning.pytorch.callbacks.early_stopping.EarlyStopping callback.\n- Log the metric you want to monitor using ~lightning.pytorch.core.LightningModule.log method.\n- Init the callback, and set monitor to the logged metric of your choice.\n- Set the mode based on the metric needs to be monitored.\n- Pass the ~lightning.pytorch.callbacks.early_stopping.EarlyStopping callback to the ~lightning.pytorch.trainer.trainer.Trainer callbacks flag.\n\n```python\nfrom lightning.pytorch.callbacks.early_stopping import EarlyStopping\n\nclass LitModel(LightningModule):\n    def validation_step(self, batch, batch_idx):\n        loss = ...\n        self.log(\"val_loss\", loss)\n\nmodel = LitModel()\ntrainer = Trainer(callbacks=[EarlyStopping(monitor=\"val_loss\", mode=\"min\")])\ntrainer.fit(model)\n```\nYou can customize the callbacks behaviour by changing its parameters.\n\nearly_stop_callback = EarlyStopping(monitor=\"val_accuracy\", min_delta=0.00, patience=3, verbose=False, mode=\"max\")\ntrainer = Trainer(callbacks=[early_stop_callback])\nAdditional parameters that stop training at extreme points:\n\n- stopping_threshold: Stops training immediately once the monitored quantity reaches this threshold.\nIt is useful when we know that going beyond a certain optimal value does not further benefit us.\n- divergence_threshold: Stops training as soon as the monitored quantity becomes worse than this threshold.\nWhen reaching a value this bad, we believes the model cannot recover anymore and it is better to stop early and run with different initial conditions.\n- check_finite: When turned on, it stops training if the monitored metric becomes NaN or infinite.\n- check_on_train_epoch_end: When turned on, it checks the metric at the end of a training epoch. Use this only when you are monitoring any metric logged within\ntraining-specific hooks on epoch-level.\n\nAfter training completes, you can programmatically check why early stopping occurred using the stopping_reason\nattribute, which returns an EarlyStoppingReason enum value.\n\n```python\nfrom lightning.pytorch.callbacks import EarlyStopping\nfrom lightning.pytorch.callbacks.early_stopping import EarlyStoppingReason\n\nearly_stopping = EarlyStopping(monitor=\"val_loss\", patience=3)\ntrainer = Trainer(callbacks=[early_stopping])\ntrainer.fit(model)\n\n# Check why training stopped\nif early_stopping.stopping_reason == EarlyStoppingReason.PATIENCE_EXHAUSTED:\n    print(\"Training stopped due to patience exhaustion\")\nelif early_stopping.stopping_reason == EarlyStoppingReason.STOPPING_THRESHOLD:\n    print(\"Training stopped due to reaching stopping threshold\")\nelif early_stopping.stopping_reason == EarlyStoppingReason.NOT_STOPPED:\n    print(\"Training completed normally without early stopping\")\n\n# Access human-readable message\nif early_stopping.stopping_reason_message:\n    print(f\"Details: {early_stopping.stopping_reason_message}\")\n```\nThe available stopping reasons are:\n\n- NOT_STOPPED: Training completed normally without early stopping\n- STOPPING_THRESHOLD: Training stopped because the monitored metric reached the stopping threshold\n- DIVERGENCE_THRESHOLD: Training stopped because the monitored metric exceeded the divergence threshold\n- PATIENCE_EXHAUSTED: Training stopped because the metric didn't improve for the specified patience\n- NON_FINITE_METRIC: Training stopped because the monitored metric became NaN or infinite\n\nIn case you need early stopping in a different part of training, subclass ~lightning.pytorch.callbacks.early_stopping.EarlyStopping\nand change where it is called:\n\nclass MyEarlyStopping(EarlyStopping):\ndef on_validation_end(self, trainer, pl_module):\n# override this to disable early stopping at the end of val loop\npass\n\ndef on_train_end(self, trainer, pl_module):\n# instead, do it at the end of training loop\nself._run_early_stopping_check(trainer)\nThe ~lightning.pytorch.callbacks.early_stopping.EarlyStopping callback runs\nat the end of every validation epoch by default. However, the frequency of validation\ncan be modified by setting various parameters in the ~lightning.pytorch.trainer.trainer.Trainer,\nfor example ~lightning.pytorch.trainer.trainer.Trainer.check_val_every_n_epoch\nand ~lightning.pytorch.trainer.trainer.Trainer.val_check_interval.\nIt must be noted that the patience parameter counts the number of\nvalidation checks with no improvement, and not the number of training epochs.\nTherefore, with parameters check_val_every_n_epoch=10 and patience=3, the trainer\nwill perform at least 40 training epochs before being stopped."
+  },
+  {
+    "index": 53,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html To make sure a model can generalize to an unseen dataset (ie: to publish a paper or in a production environment) a dataset is normally split into two parts, the *train* split and the *test* split.\n\nThe test set is **NOT** used during training, it is **ONLY** used once the model has been trained to see how the model will do in the real-world.\n\n----"
+  },
+  {
+    "index": 54,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html Datasets come with two splits. Refer to the dataset documentation to find the *train* and *test* splits.\n\n```python\nimport torch.utils.data as data\nfrom torchvision import datasets\nimport torchvision.transforms as transforms\n\n# Load data sets\ntransform = transforms.ToTensor()\ntrain_set = datasets.MNIST(root=\"MNIST\", download=True, train=True, transform=transform)\ntest_set = datasets.MNIST(root=\"MNIST\", download=True, train=False, transform=transform)\n```\n----"
+  },
+  {
+    "index": 55,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html To add a test loop, implement the **test_step** method of the LightningModule\n\n```python\nclass LitAutoEncoder(L.LightningModule):\n    def training_step(self, batch, batch_idx):\n        ...\n\n    def test_step(self, batch, batch_idx):\n        # this is the test loop\n        x, _ = batch\n        x = x.view(x.size(0), -1)\n        z = self.encoder(x)\n        x_hat = self.decoder(z)\n        test_loss = F.mse_loss(x_hat, x)\n        self.log(\"test_loss\", test_loss)\n```\n----"
+  },
+  {
+    "index": 56,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html Once the model has finished training, call **.test**\n\n```python\nfrom torch.utils.data import DataLoader\n\n# initialize the Trainer\ntrainer = Trainer()\n\n# test the model\ntrainer.test(model, dataloaders=DataLoader(test_set))\n```\n----"
+  },
+  {
+    "index": 57,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html During training, it's common practice to use a small portion of the train split to determine when the model has finished training.\n\n----"
+  },
+  {
+    "index": 58,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html As a rule of thumb, we use 20% of the training set as the **validation set**. This number varies from dataset to dataset.\n\n```python\n# use 20% of training data for validation\ntrain_set_size = int(len(train_set) * 0.8)\nvalid_set_size = len(train_set) - train_set_size\n\n# split the train set into two\nseed = torch.Generator().manual_seed(42)\ntrain_set, valid_set = data.random_split(train_set, [train_set_size, valid_set_size], generator=seed)\n```\n----"
+  },
+  {
+    "index": 59,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html To add a validation loop, implement the **validation_step** method of the LightningModule\n\n```python\nclass LitAutoEncoder(L.LightningModule):\n    def training_step(self, batch, batch_idx):\n        ...\n\n    def validation_step(self, batch, batch_idx):\n        # this is the validation loop\n        x, _ = batch\n        x = x.view(x.size(0), -1)\n        z = self.encoder(x)\n        x_hat = self.decoder(z)\n        val_loss = F.mse_loss(x_hat, x)\n        self.log(\"val_loss\", val_loss)\n```\n----"
+  },
+  {
+    "index": 60,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_basic.html",
+    "text": "docs/pytorch/stable/common/evaluation_basic.html To run the validation loop, pass in the validation set to **.fit**\n\n```python\nfrom torch.utils.data import DataLoader\n\ntrain_loader = DataLoader(train_set)\nvalid_loader = DataLoader(valid_set)\nmodel = LitAutoEncoder(...)\n\n# train with both splits\ntrainer = L.Trainer()\ntrainer.fit(model, train_loader, valid_loader)\n```"
+  },
+  {
+    "index": 61,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html Lightning allows the user to test their models with any compatible test dataloaders. This can be done before/after training\nand is completely agnostic to ~lightning.pytorch.trainer.trainer.Trainer.fit call. The logic used here is defined under\n~lightning.pytorch.core.LightningModule.test_step.\n\nTesting is performed using the Trainer object's .test() method."
+  },
+  {
+    "index": 62,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html To run the test set after training completes, use this method.\n\n```python\n# run full training\ntrainer.fit(model)\n\n# (1) load the best checkpoint automatically (lightning tracks this for you during .fit())\ntrainer.test(ckpt_path=\"best\")\n\n# (2) load the last available checkpoint (only works if `ModelCheckpoint(save_last=True)`)\ntrainer.test(ckpt_path=\"last\")\n\n# (3) test using a specific checkpoint\ntrainer.test(ckpt_path=\"/path/to/my_checkpoint.ckpt\")\n\n# (4) test with an explicit model (will use this model and not load a checkpoint)\ntrainer.test(model)\n```\nIt is recommended to test with Trainer(devices=1) since distributed strategies such as DDP\nuse ~torch.utils.data.distributed.DistributedSampler internally, which replicates some samples to\nmake sure all devices have same batch size in case of uneven inputs. This is helpful to make sure\nbenchmarking for research papers is done the right way."
+  },
+  {
+    "index": 63,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html You can run the test set on multiple models using the same trainer instance.\n\n```python\nmodel1 = LitModel()\nmodel2 = GANModel()\n\ntrainer = Trainer()\ntrainer.test(model1)\ntrainer.test(model2)\n```"
+  },
+  {
+    "index": 64,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html To run the test set on a pre-trained model, use this method.\n\n```python\nmodel = MyLightningModule.load_from_checkpoint(\n    checkpoint_path=\"/path/to/pytorch_checkpoint.ckpt\",\n    hparams_file=\"/path/to/experiment/version/hparams.yaml\",\n    map_location=None,\n)\n\n# init trainer with whatever options\ntrainer = Trainer(...)\n\n# test (pass in the model)\ntrainer.test(model)\n```\nIn this case, the options you pass to trainer will be used when\nrunning the test set (ie: 16-bit, dp, ddp, etc...)"
+  },
+  {
+    "index": 65,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html You can still run inference on a test dataset even if the ~lightning.pytorch.core.hooks.DataHooks.test_dataloader method hasn't been\ndefined within your lightning module <../common/lightning_module> instance. This would be the case when your test data\nis not available at the time your model was declared.\n\n```python\n# setup your data loader\ntest_dataloader = DataLoader(...)\n\n# test (pass in the loader)\ntrainer.test(dataloaders=test_dataloader)\n```\nYou can either pass in a single dataloader or a list of them. This optional named\nparameter can be used in conjunction with any of the above use cases. Additionally,\nyou can also pass in an datamodules <../data/datamodule> that have overridden the\ndatamodule_test_dataloader_label method.\n\n```python\nclass MyDataModule(L.LightningDataModule):\n    ...\n\n    def test_dataloader(self):\n        return DataLoader(...)\n\n# setup your datamodule\ndm = MyDataModule(...)\n\n# test (pass in datamodule)\ntrainer.test(datamodule=dm)\n```"
+  },
+  {
+    "index": 66,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html When you need to evaluate your model on multiple test datasets simultaneously (e.g., different domains, conditions, or\nevaluation scenarios), PyTorch Lightning supports multiple test dataloaders out of the box.\n\nTo use multiple test dataloaders, simply return a list of dataloaders from your test_dataloader() method:\n\n```python\nclass LitModel(L.LightningModule):\n    def test_dataloader(self):\n        return [\n            DataLoader(clean_test_dataset, batch_size=32),\n            DataLoader(noisy_test_dataset, batch_size=32),\n            DataLoader(adversarial_test_dataset, batch_size=32),\n        ]\n```\nWhen using multiple test dataloaders, your test_step method **must** include a dataloader_idx parameter:\n\n```python\ndef test_step(self, batch, batch_idx, dataloader_idx: int = 0):\n    x, y = batch\n    y_hat = self(x)\n    loss = F.cross_entropy(y_hat, y)\n\n    # Use dataloader_idx to handle different test scenarios\n    return {'test_loss': loss}\n```"
+  },
+  {
+    "index": 67,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html Lightning provides automatic support for logging metrics per dataloader:\n\n```python\ndef test_step(self, batch, batch_idx, dataloader_idx: int = 0):\n    x, y = batch\n    y_hat = self(x)\n    loss = F.cross_entropy(y_hat, y)\n    acc = (y_hat.argmax(dim=1) == y).float().mean()\n\n    # Lightning automatically adds \"/dataloader_idx_X\" suffix\n    self.log('test_loss', loss, add_dataloader_idx=True)\n    self.log('test_acc', acc, add_dataloader_idx=True)\n\n    return loss\n```\nThis will create metrics like test_loss/dataloader_idx_0, test_loss/dataloader_idx_1, etc.\n\nFor more meaningful metric names, you can use custom naming where you need to make sure that individual names are\nunique across dataloaders.\n\n```python\ndef test_step(self, batch, batch_idx, dataloader_idx: int = 0):\n    # Define meaningful names for each dataloader\n    dataloader_names = {0: \"clean\", 1: \"noisy\", 2: \"adversarial\"}\n    dataset_name = dataloader_names.get(dataloader_idx, f\"dataset_{dataloader_idx}\")\n\n    # Log with custom names\n    self.log(f'test_loss_{dataset_name}', loss, add_dataloader_idx=False)\n    self.log(f'test_acc_{dataset_name}', acc, add_dataloader_idx=False)\n```"
+  },
+  {
+    "index": 68,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html To perform calculations on the entire test dataset for each dataloader (e.g., computing overall metrics, creating\nvisualizations), accumulate results during test_step and process them in on_test_epoch_end:\n\n```python\nclass LitModel(L.LightningModule):\n    def __init__(self):\n        super().__init__()\n        # Store outputs per dataloader\n        self.test_outputs = {}\n\n    def test_step(self, batch, batch_idx, dataloader_idx: int = 0):\n        x, y = batch\n        y_hat = self(x)\n        loss = F.cross_entropy(y_hat, y)\n\n        # Initialize and store results\n        if dataloader_idx not in self.test_outputs:\n            self.test_outputs[dataloader_idx] = {'predictions': [], 'targets': []}\n        self.test_outputs[dataloader_idx]['predictions'].append(y_hat)\n        self.test_outputs[dataloader_idx]['targets'].append(y)\n        return loss\n\n    def on_test_epoch_end(self):\n        for dataloader_idx, outputs in self.test_outputs.items():\n            # Concatenate all predictions and targets for this dataloader\n            all_predictions = torch.cat(outputs['predictions'], dim=0)\n            all_targets = torch.cat(outputs['targets'], dim=0)\n\n            # Calculate metrics on the entire dataset, log and create visualizations\n            overall_accuracy = (all_predictions.argmax(dim=1) == all_targets).float().mean()\n            self.log(f'test_overall_acc_dataloader_{dataloader_idx}', overall_accuracy)\n            self._save_results(all_predictions, all_targets, dataloader_idx)\n\n        self.test_outputs.clear()\n```\nWhen using multiple test dataloaders, trainer.test() returns a list of results, one for each dataloader:\n\n.. code-block:: python\n\nresults = trainer.test(model)\nprint(f\"Results from {len(results)} test dataloaders:\")\nfor i, result in enumerate(results):\nprint(f\"Dataloader {i}: {result}\")\n----------"
+  },
+  {
+    "index": 69,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/evaluation_intermediate.html",
+    "text": "docs/pytorch/stable/common/evaluation_intermediate.html Lightning allows the user to validate their models with any compatible val dataloaders. This can be done before/after training.\nThe logic associated to the validation is defined within the ~lightning.pytorch.core.LightningModule.validation_step.\n\nApart from this .validate has same API as .test, but would rely respectively on ~lightning.pytorch.core.LightningModule.validation_step and ~lightning.pytorch.core.LightningModule.test_step.\n\n.validate method uses the same validation logic being used under validation happening within\n~lightning.pytorch.trainer.trainer.Trainer.fit call.\nWhen using trainer.validate(), it is recommended to use Trainer(devices=1) since distributed strategies such as DDP\nuses ~torch.utils.data.distributed.DistributedSampler internally, which replicates some samples to\nmake sure all devices have same batch size in case of uneven inputs. This is helpful to make sure\nbenchmarking for research papers is done the right way."
+  },
+  {
+    "index": 70,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/hooks.html",
+    "text": "docs/pytorch/stable/common/hooks.html The following diagram shows the execution order of hooks during a typical training loop e.g. calling `trainer.fit()`,\nwith the source of each hook indicated:\n\n```text\nTraining Process Flow:\n\ntrainer.fit()\n\u2502\n\u251c\u2500\u2500 setup(stage=\"fit\")\n\u2502   \u251c\u2500\u2500 [LightningDataModule]\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u251c\u2500\u2500 [LightningModule.configure_shared_model()]\n\u2502   \u251c\u2500\u2500 [LightningModule.configure_model()]\n\u2502   \u251c\u2500\u2500 Strategy.restore_checkpoint_before_setup\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule.on_load_checkpoint()]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule.load_state_dict()]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningDataModule.load_state_dict()]\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks.on_load_checkpoint()]\n\u2502   \u2502   \u2514\u2500\u2500 [Callbacks.load_state_dict()]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 on_fit_start()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502\n\u251c\u2500\u2500 Strategy.restore_checkpoint_after_setup\n\u2502   \u251c\u2500\u2500 [LightningModule.on_load_checkpoint()]\n\u2502   \u251c\u2500\u2500 [LightningModule.load_state_dict()]\n\u2502   \u251c\u2500\u2500 [LightningDataModule.load_state_dict()]\n\u2502   \u251c\u2500\u2500 [Callbacks.on_load_checkpoint()]\n\u2502   \u2514\u2500\u2500 [Callbacks.load_state_dict()]\n\u2502\n\u251c\u2500\u2500 on_sanity_check_start()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u251c\u2500\u2500 on_validation_start()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u251c\u2500\u2500 on_validation_epoch_start()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u251c\u2500\u2500 [for each validation batch]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 on_validation_batch_start()\n\u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 on_validation_batch_end()\n\u2502   \u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502       \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2514\u2500\u2500 [end validation batches]\n\u2502   \u251c\u2500\u2500 on_validation_epoch_end()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2514\u2500\u2500 on_validation_end()\n\u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502       \u2514\u2500\u2500 [Strategy]\n\u251c\u2500\u2500 on_sanity_check_end()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 on_train_start()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 [Training Epochs Loop]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 on_train_epoch_start()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 [Training Batches Loop]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 on_train_batch_start()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 [Forward Pass - training_step()]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy only]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 on_before_zero_grad()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 optimizer_zero_grad()\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule only - optimizer_zero_grad()]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 [Backward Pass - Strategy.backward()]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 on_before_backward()\n\u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 LightningModule.backward()\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 on_after_backward()\n\u2502   \u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502       \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 on_before_optimizer_step()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 [Optimizer Step]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule only - optimizer_step()]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u2514\u2500\u2500 on_train_batch_end()\n\u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502       \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502\n\u2502   \u2502   [Optional: Validation during training]\n\u2502   \u2502   \u251c\u2500\u2500 on_validation_start()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u251c\u2500\u2500 on_validation_epoch_start()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [for each validation batch]\n\u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 on_validation_batch_start()\n\u2502   \u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502   \u2502   \u2514\u2500\u2500 on_validation_batch_end()\n\u2502   \u2502   \u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2502       \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [end validation batches]\n\u2502   \u2502   \u251c\u2500\u2500 on_validation_epoch_end()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2514\u2500\u2500 on_validation_end()\n\u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502       \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502\n\u2502   \u2514\u2500\u2500 on_train_epoch_end() **SPECIAL CASE**\n\u2502       \u251c\u2500\u2500 [Callbacks - Non-monitoring only]\n\u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502       \u2514\u2500\u2500 [Callbacks - Monitoring only]\n\u2502\n\u251c\u2500\u2500 [End Training Epochs]\n\u2502\n\u251c\u2500\u2500 on_train_end()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u2514\u2500\u2500 teardown(stage=\"fit\")\n    \u251c\u2500\u2500 [Strategy]\n    \u251c\u2500\u2500 on_fit_end()\n    \u2502   \u251c\u2500\u2500 [Callbacks]\n    \u2502   \u2514\u2500\u2500 [LightningModule]\n    \u251c\u2500\u2500 [LightningDataModule]\n    \u251c\u2500\u2500 [Callbacks]\n    \u2514\u2500\u2500 [LightningModule]\n```"
+  },
+  {
+    "index": 71,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/hooks.html",
+    "text": "docs/pytorch/stable/common/hooks.html When running tests with trainer.test():\n\n```text\ntrainer.test()\n\u2502\n\u251c\u2500\u2500 setup(stage=\"test\")\n\u2502   \u2514\u2500\u2500 [Callbacks only]\n\u251c\u2500\u2500 on_test_start()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 [Test Epochs Loop]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 on_test_epoch_start()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 [Test Batches Loop]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 on_test_batch_start()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u2514\u2500\u2500 on_test_batch_end()\n\u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2502       \u2514\u2500\u2500 [Strategy]\n\u2502   \u2502\n\u2502   \u2514\u2500\u2500 on_test_epoch_end()\n\u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502       \u251c\u2500\u2500 [LightningModule]\n\u2502       \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 on_test_end()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2514\u2500\u2500 teardown(stage=\"test\")\n    \u2514\u2500\u2500 [Callbacks only]\n```"
+  },
+  {
+    "index": 72,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/hooks.html",
+    "text": "docs/pytorch/stable/common/hooks.html When running predictions with trainer.predict():\n\n```text\ntrainer.predict()\n\u2502\n\u251c\u2500\u2500 setup(stage=\"predict\")\n\u2502   \u2514\u2500\u2500 [Callbacks only]\n\u251c\u2500\u2500 on_predict_start()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2502\n\u251c\u2500\u2500 [Prediction Epochs Loop]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 on_predict_epoch_start()\n\u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502\n\u2502   \u251c\u2500\u2500 [Prediction Batches Loop]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u251c\u2500\u2500 on_predict_batch_start()\n\u2502   \u2502   \u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502   \u2502   \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502   \u2502\n\u2502   \u2502   \u2514\u2500\u2500 on_predict_batch_end()\n\u2502   \u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502   \u2502       \u2514\u2500\u2500 [LightningModule]\n\u2502   \u2502\n\u2502   \u2514\u2500\u2500 on_predict_epoch_end()\n\u2502       \u251c\u2500\u2500 [Callbacks]\n\u2502       \u2514\u2500\u2500 [LightningModule]\n\u2502\n\u251c\u2500\u2500 on_predict_end()\n\u2502   \u251c\u2500\u2500 [Callbacks]\n\u2502   \u251c\u2500\u2500 [LightningModule]\n\u2502   \u2514\u2500\u2500 [Strategy]\n\u2514\u2500\u2500 teardown(stage=\"predict\")\n    \u2514\u2500\u2500 [Callbacks only]\n```"
+  },
+  {
+    "index": 73,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html Here are the only required methods.\n\n```python\nimport lightning as L\nimport torch\n\nfrom lightning.pytorch.demos import Transformer\n\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n\n    def forward(self, inputs, target):\n        return self.model(inputs, target)\n\n    def training_step(self, batch, batch_idx):\n        inputs, target = batch\n        output = self(inputs, target)\n        loss = torch.nn.functional.nll_loss(output, target.view(-1))\n        return loss\n\n    def configure_optimizers(self):\n        return torch.optim.SGD(self.model.parameters(), lr=0.1)\n```\nWhich you can train by doing:\n\n```python\nfrom lightning.pytorch.demos import WikiText2\nfrom torch.utils.data import DataLoader\n\ndataset = WikiText2()\ndataloader = DataLoader(dataset)\nmodel = LightningTransformer(vocab_size=dataset.vocab_size)\n\ntrainer = L.Trainer(fast_dev_run=100)\ntrainer.fit(model=model, train_dataloaders=dataloader)\n```\nThe LightningModule has many convenient methods, but the core ones you need to know about are:\n\n* - Name\n- Description\n* - __init__ and ~lightning.pytorch.core.hooks.ModelHooks.setup\n- Define initialization here\n* - ~lightning.pytorch.core.LightningModule.forward\n- To run data through your model only (separate from training_step)\n* - ~lightning.pytorch.core.LightningModule.training_step\n- the complete training step\n* - ~lightning.pytorch.core.LightningModule.validation_step\n- the complete validation step\n* - ~lightning.pytorch.core.LightningModule.test_step\n- the complete test step\n* - ~lightning.pytorch.core.LightningModule.predict_step\n- the complete prediction step\n* - ~lightning.pytorch.core.LightningModule.configure_optimizers\n- define optimizers and LR schedulers\n----------"
+  },
+  {
+    "index": 74,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html To activate the training loop, override the ~lightning.pytorch.core.LightningModule.training_step method.\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n\n    def training_step(self, batch, batch_idx):\n        inputs, target = batch\n        output = self.model(inputs, target)\n        loss = torch.nn.functional.nll_loss(output, target.view(-1))\n        return loss\n```\nUnder the hood, Lightning does the following (pseudocode):\n\n```python\n# enable gradient calculation\ntorch.set_grad_enabled(True)\n\nfor batch_idx, batch in enumerate(train_dataloader):\n    loss = training_step(batch, batch_idx)\n\n    # clear gradients\n    optimizer.zero_grad()\n\n    # backward\n    loss.backward()\n\n    # update parameters\n    optimizer.step()\n```"
+  },
+  {
+    "index": 75,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html If you want to calculate epoch-level metrics and log them, use ~lightning.pytorch.core.LightningModule.log.\n\n```python\ndef training_step(self, batch, batch_idx):\n    inputs, target = batch\n    output = self.model(inputs, target)\n    loss = torch.nn.functional.nll_loss(output, target.view(-1))\n\n    # logs metrics for each training_step,\n    # and the average across the epoch, to the progress bar and logger\n    self.log(\"train_loss\", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)\n    return loss\n```\nThe ~lightning.pytorch.core.LightningModule.log method automatically reduces the\nrequested metrics across a complete epoch and devices. Here's the pseudocode of what it does under the hood:\n\n```python\nouts = []\nfor batch_idx, batch in enumerate(train_dataloader):\n    # forward\n    loss = training_step(batch, batch_idx)\n    outs.append(loss.detach())\n\n    # clear gradients\n    optimizer.zero_grad()\n    # backward\n    loss.backward()\n    # update parameters\n    optimizer.step()\n\n# note: in reality, we do this incrementally, instead of keeping all outputs in memory\nepoch_metric = torch.mean(torch.stack(outs))\n```"
+  },
+  {
+    "index": 76,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html In the case that you need to make use of all the outputs from each ~lightning.pytorch.LightningModule.training_step,\noverride the ~lightning.pytorch.LightningModule.on_train_epoch_end method.\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n        self.training_step_outputs = []\n\n    def training_step(self, batch, batch_idx):\n        inputs, target = batch\n        output = self.model(inputs, target)\n        loss = torch.nn.functional.nll_loss(output, target.view(-1))\n        preds = ...\n        self.training_step_outputs.append(preds)\n        return loss\n\n    def on_train_epoch_end(self):\n        all_preds = torch.stack(self.training_step_outputs)\n        # do something with all preds\n        ...\n        self.training_step_outputs.clear()  # free memory\n```\n------------------"
+  },
+  {
+    "index": 77,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html To activate the validation loop while training, override the ~lightning.pytorch.core.LightningModule.validation_step method.\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def validation_step(self, batch, batch_idx):\n        inputs, target = batch\n        output = self.model(inputs, target)\n        loss = F.cross_entropy(y_hat, y)\n        self.log(\"val_loss\", loss)\n```\nUnder the hood, Lightning does the following (pseudocode):\n\n```python\n# ...\nfor batch_idx, batch in enumerate(train_dataloader):\n    loss = model.training_step(batch, batch_idx)\n    loss.backward()\n    # ...\n\n    if validate_at_some_point:\n        # disable grads + batchnorm + dropout\n        torch.set_grad_enabled(False)\n        model.eval()\n\n        # ----------------- VAL LOOP ---------------\n        for val_batch_idx, val_batch in enumerate(val_dataloader):\n            val_out = model.validation_step(val_batch, val_batch_idx)\n        # ----------------- VAL LOOP ---------------\n\n        # enable grads + batchnorm + dropout\n        torch.set_grad_enabled(True)\n        model.train()\n```\nYou can also run just the validation loop on your validation dataloaders by overriding ~lightning.pytorch.core.LightningModule.validation_step\nand calling ~lightning.pytorch.trainer.trainer.Trainer.validate.\n\n```python\nmodel = LightningTransformer(vocab_size=dataset.vocab_size)\ntrainer = L.Trainer()\ntrainer.validate(model)\n```\nIt is recommended to validate on single device to ensure each sample/batch gets evaluated exactly once.\nThis is helpful to make sure benchmarking for research papers is done the right way. Otherwise, in a\nmulti-device setting, samples could occur duplicated when ~torch.utils.data.distributed.DistributedSampler\nis used, for eg. with strategy=\"ddp\". It replicates some samples on some devices to make sure all devices have\nsame batch size in case of uneven inputs."
+  },
+  {
+    "index": 78,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html In the case that you need to make use of all the outputs from each ~lightning.pytorch.LightningModule.validation_step,\noverride the ~lightning.pytorch.LightningModule.on_validation_epoch_end method.\nNote that this method is called before ~lightning.pytorch.LightningModule.on_train_epoch_end.\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n        self.validation_step_outputs = []\n\n    def validation_step(self, batch, batch_idx):\n        x, y = batch\n        inputs, target = batch\n        output = self.model(inputs, target)\n        loss = torch.nn.functional.nll_loss(output, target.view(-1))\n        pred = ...\n        self.validation_step_outputs.append(pred)\n        return pred\n\n    def on_validation_epoch_end(self):\n        all_preds = torch.stack(self.validation_step_outputs)\n        # do something with all preds\n        ...\n        self.validation_step_outputs.clear()  # free memory\n```\n----------------"
+  },
+  {
+    "index": 79,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The process for enabling a test loop is the same as the process for enabling a validation loop. Please refer to\nthe section above for details. For this you need to override the ~lightning.pytorch.core.LightningModule.test_step method.\n\nThe only difference is that the test loop is only called when ~lightning.pytorch.trainer.trainer.Trainer.test is used.\n\n```python\nmodel = LightningTransformer(vocab_size=dataset.vocab_size)\ndataloader = DataLoader(dataset)\ntrainer = L.Trainer()\ntrainer.fit(model=model, train_dataloaders=dataloader)\n\n# automatically loads the best weights for you\ntrainer.test(model)\n```\nThere are two ways to call test():\n\n```python\n# call after training\ntrainer = L.Trainer()\ntrainer.fit(model=model, train_dataloaders=dataloader)\n\n# automatically auto-loads the best weights from the previous run\ntrainer.test(dataloaders=test_dataloaders)\n\n# or call with pretrained model\nmodel = LightningTransformer.load_from_checkpoint(PATH)\ndataset = WikiText2()\ntest_dataloader = DataLoader(dataset)\ntrainer = L.Trainer()\ntrainer.test(model, dataloaders=test_dataloader)\n```\n`WikiText2` is used in a manner that does not create a train, test, val split. This is done for illustrative purposes only.\nA proper split can be created in lightning.pytorch.core.LightningModule.setup or lightning.pytorch.core.LightningDataModule.setup.\nIt is recommended to validate on single device to ensure each sample/batch gets evaluated exactly once.\nThis is helpful to make sure benchmarking for research papers is done the right way. Otherwise, in a\nmulti-device setting, samples could occur duplicated when ~torch.utils.data.distributed.DistributedSampler\nis used, for eg. with strategy=\"ddp\". It replicates some samples on some devices to make sure all devices have\nsame batch size in case of uneven inputs.\n----------"
+  },
+  {
+    "index": 80,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html By default, the ~lightning.pytorch.core.LightningModule.predict_step method runs the\n~lightning.pytorch.core.LightningModule.forward method. In order to customize this behaviour,\nsimply override the ~lightning.pytorch.core.LightningModule.predict_step method.\n\nFor the example let's override predict_step:\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n\n    def predict_step(self, batch):\n        inputs, target = batch\n        return self.model(inputs, target)\n```\nUnder the hood, Lightning does the following (pseudocode):\n\n```python\n# disable grads + batchnorm + dropout\ntorch.set_grad_enabled(False)\nmodel.eval()\nall_preds = []\n\nfor batch_idx, batch in enumerate(predict_dataloader):\n    pred = model.predict_step(batch, batch_idx)\n    all_preds.append(pred)\n```\nThere are two ways to call predict():\n\n```python\n# call after training\ntrainer = L.Trainer()\ntrainer.fit(model=model, train_dataloaders=dataloader)\n\n# automatically auto-loads the best weights from the previous run\npredictions = trainer.predict(dataloaders=predict_dataloader)\n\n# or call with pretrained model\nmodel = LightningTransformer.load_from_checkpoint(PATH)\ndataset = WikiText2()\ntest_dataloader = DataLoader(dataset)\ntrainer = L.Trainer()\npredictions = trainer.predict(model, dataloaders=test_dataloader)\n```"
+  },
+  {
+    "index": 81,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html If you want to perform inference with the system, you can add a forward method to the LightningModule.\n\n```python\nclass LightningTransformer(L.LightningModule):\n    def __init__(self, vocab_size):\n        super().__init__()\n        self.model = Transformer(vocab_size=vocab_size)\n\n    def forward(self, batch):\n        inputs, target = batch\n        return self.model(inputs, target)\n\n    def training_step(self, batch, batch_idx):\n        inputs, target = batch\n        output = self.model(inputs, target)\n        loss = torch.nn.functional.nll_loss(output, target.view(-1))\n        return loss\n\n    def configure_optimizers(self):\n        return torch.optim.SGD(self.model.parameters(), lr=0.1)\n\nmodel = LightningTransformer(vocab_size=dataset.vocab_size)\n\nmodel.eval()\nwith torch.no_grad():\n    batch = dataloader.dataset[0]\n    pred = model(batch)\n```\nThe advantage of adding a forward is that in complex systems, you can do a much more involved inference procedure,\nsuch as text generation:\n\n```python\nclass Seq2Seq(L.LightningModule):\n    def forward(self, x):\n        embeddings = self(x)\n        hidden_states = self.encoder(embeddings)\n        for h in hidden_states:\n            # decode\n            ...\n        return decoded\n```\nIn the case where you want to scale your inference, you should be using\n~lightning.pytorch.core.LightningModule.predict_step.\n\n```python\nclass Autoencoder(L.LightningModule):\n    def forward(self, x):\n        return self.decoder(x)\n\n    def predict_step(self, batch, batch_idx, dataloader_idx=0):\n        # this calls forward\n        return self(batch)\n\ndata_module = ...\nmodel = Autoencoder()\ntrainer = Trainer(accelerator=\"gpu\", devices=2)\ntrainer.predict(model, data_module)\n```"
+  },
+  {
+    "index": 82,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html For cases like production, you might want to iterate different models inside a LightningModule.\n\n```python\nfrom torchmetrics.functional import accuracy\n\nclass ClassificationTask(L.LightningModule):\n    def __init__(self, model):\n        super().__init__()\n        self.model = model\n\n    def training_step(self, batch, batch_idx):\n        x, y = batch\n        y_hat = self.model(x)\n        loss = F.cross_entropy(y_hat, y)\n        return loss\n\n    def validation_step(self, batch, batch_idx):\n        loss, acc = self._shared_eval_step(batch, batch_idx)\n        metrics = {\"val_acc\": acc, \"val_loss\": loss}\n        self.log_dict(metrics)\n        return metrics\n\n    def test_step(self, batch, batch_idx):\n        loss, acc = self._shared_eval_step(batch, batch_idx)\n        metrics = {\"test_acc\": acc, \"test_loss\": loss}\n        self.log_dict(metrics)\n        return metrics\n\n    def _shared_eval_step(self, batch, batch_idx):\n        x, y = batch\n        y_hat = self.model(x)\n        loss = F.cross_entropy(y_hat, y)\n        acc = accuracy(y_hat, y)\n        return loss, acc\n\n    def predict_step(self, batch, batch_idx, dataloader_idx=0):\n        x, y = batch\n        y_hat = self.model(x)\n        return y_hat\n\n    def configure_optimizers(self):\n        return torch.optim.Adam(self.model.parameters(), lr=0.02)\n```\nThen pass in any arbitrary model to be fit with this task\n\n```python\nfor model in [resnet50(), vgg16(), BidirectionalRNN()]:\n    task = ClassificationTask(model)\n\n    trainer = Trainer(accelerator=\"gpu\", devices=2)\n    trainer.fit(task, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)\n```\nTasks can be arbitrarily complex such as implementing GAN training, self-supervised or even RL.\n\n```python\nclass GANTask(L.LightningModule):\n    def __init__(self, generator, discriminator):\n        super().__init__()\n        self.generator = generator\n        self.discriminator = discriminator\n\n    ...\n```\nWhen used like this, the model can be separated from the Task and thus used in production without needing to keep it in\na LightningModule.\n\nThe following example shows how you can run inference in the Python runtime:\n\n```python\ntask = ClassificationTask(model)\ntrainer = Trainer(accelerator=\"gpu\", devices=2)\ntrainer.fit(task, train_dataloader, val_dataloader)\ntrainer.save_checkpoint(\"best_model.ckpt\")\n\n# use model after training or load weights and drop into the production system\nmodel = ClassificationTask.load_from_checkpoint(\"best_model.ckpt\")\nx = ...\nmodel.eval()\nwith torch.no_grad():\n    y_hat = model(x)\n```\nCheck out Inference in Production <production_inference> guide to learn about the possible ways to perform inference in production.\n\n-----------"
+  },
+  {
+    "index": 83,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html Often times we train many versions of a model. You might share that model or come back to it a few months later at which\npoint it is very useful to know how that model was trained (i.e.: what learning rate, neural network, etc...).\n\nLightning has a standardized way of saving the information for you in checkpoints and YAML files. The goal here is to\nimprove readability and reproducibility."
+  },
+  {
+    "index": 84,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html Use ~lightning.pytorch.core.LightningModule.save_hyperparameters within your\n~lightning.pytorch.core.LightningModule's __init__ method. It will enable Lightning to store all the\nprovided arguments under the self.hparams attribute. These hyperparameters will also be stored within the model\ncheckpoint, which simplifies model re-instantiation after training.\n\n```python\nclass LitMNIST(L.LightningModule):\n    def __init__(self, layer_1_dim=128, learning_rate=1e-2):\n        super().__init__()\n        # call this to save (layer_1_dim=128, learning_rate=1e-4) to the checkpoint\n        self.save_hyperparameters()\n\n        # equivalent\n        self.save_hyperparameters(\"layer_1_dim\", \"learning_rate\")\n\n        # Now possible to access layer_1_dim from hparams\n        self.hparams.layer_1_dim\n```\nIn addition, loggers that support it will automatically log the contents of self.hparams."
+  },
+  {
+    "index": 85,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html By default, every parameter of the __init__ method will be considered a hyperparameter to the LightningModule.\nHowever, sometimes some parameters need to be excluded from saving, for example when they are not serializable. Those\nparameters should be provided back when reloading the LightningModule. In this case, exclude them explicitly:\n\n```python\nclass LitMNIST(L.LightningModule):\n    def __init__(self, loss_fx, generator_network, layer_1_dim=128):\n        super().__init__()\n        self.layer_1_dim = layer_1_dim\n        self.loss_fx = loss_fx\n\n        # call this to save only (layer_1_dim=128) to the checkpoint\n        self.save_hyperparameters(\"layer_1_dim\")\n\n        # equivalent\n        self.save_hyperparameters(ignore=[\"loss_fx\", \"generator_network\"])\n```"
+  },
+  {
+    "index": 86,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html LightningModules that have hyperparameters automatically saved with\n~lightning.pytorch.core.LightningModule.save_hyperparameters can conveniently be loaded and instantiated\ndirectly from a checkpoint with ~lightning.pytorch.core.LightningModule.load_from_checkpoint:\n\n```python\n# to load specify the other args\nmodel = LitMNIST.load_from_checkpoint(PATH, loss_fx=torch.nn.SomeOtherLoss, generator_network=MyGenerator())\n```\nIf parameters were excluded, they need to be provided at the time of loading:\n\n```python\n# the excluded parameters were `loss_fx` and `generator_network`\nmodel = LitMNIST.load_from_checkpoint(PATH, loss_fx=torch.nn.SomeOtherLoss, generator_network=MyGenerator())\n```\n-----------"
+  },
+  {
+    "index": 87,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The number of epochs run.\n\n```python\ndef training_step(self, batch, batch_idx):\n    if self.current_epoch == 0:\n        ...\n```"
+  },
+  {
+    "index": 88,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The device the module is on. Use it to keep your code device agnostic.\n\n```python\ndef training_step(self, batch, batch_idx):\n    z = torch.rand(2, 3, device=self.device)\n```"
+  },
+  {
+    "index": 89,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The global_rank is the index of the current process across all nodes and devices.\nLightning will perform some operations such as logging, weight checkpointing only when global_rank=0. You\nusually do not need to use this property, but it is useful to know how to access it if needed.\n\n```python\ndef training_step(self, batch, batch_idx):\n    if self.global_rank == 0:\n        # do something only once across all the nodes\n        ...\n```"
+  },
+  {
+    "index": 90,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The number of optimizer steps taken (does not reset each epoch).\nThis includes multiple optimizers (if enabled).\n\n```python\ndef training_step(self, batch, batch_idx):\n    self.logger.experiment.log_image(..., step=self.global_step)\n```"
+  },
+  {
+    "index": 91,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The arguments passed through LightningModule.__init__() and saved by calling\n~lightning.pytorch.core.mixins.hparams_mixin.HyperparametersMixin.save_hyperparameters could be accessed by the hparams attribute.\n\n```python\ndef __init__(self, learning_rate):\n    self.save_hyperparameters()\n\ndef configure_optimizers(self):\n    return Adam(self.parameters(), lr=self.hparams.learning_rate)\n```"
+  },
+  {
+    "index": 92,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The current logger being used (tensorboard or other supported logger)\n\n```python\ndef training_step(self, batch, batch_idx):\n    # the generic logger (same no matter if tensorboard or other supported logger)\n    self.logger\n\n    # the particular logger\n    tensorboard_logger = self.logger.experiment\n```"
+  },
+  {
+    "index": 93,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The list of loggers currently being used by the Trainer.\n\n```python\ndef training_step(self, batch, batch_idx):\n    # List of Logger objects\n    loggers = self.loggers\n    for logger in loggers:\n        logger.log_metrics({\"foo\": 1.0})\n```"
+  },
+  {
+    "index": 94,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The local_rank is the index of the current process across all the devices for the current node.\nYou usually do not need to use this property, but it is useful to know how to access it if needed.\nFor example, if using 10 machines (or nodes), the GPU at index 0 on each machine has local_rank = 0.\n\n```python\ndef training_step(self, batch, batch_idx):\n    if self.local_rank == 0:\n        # do something only once across each node\n        ...\n```"
+  },
+  {
+    "index": 95,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html The type of precision used:\n\n```python\ndef training_step(self, batch, batch_idx):\n    if self.precision == \"16-true\":\n        ...\n```"
+  },
+  {
+    "index": 96,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html Pointer to the trainer\n\n```python\ndef training_step(self, batch, batch_idx):\n    max_steps = self.trainer.max_steps\n    any_flag = self.trainer.any_flag\n```"
+  },
+  {
+    "index": 97,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html If set to True will call prepare_data() on LOCAL_RANK=0 for every node.\nIf set to False will only call from NODE_RANK=0, LOCAL_RANK=0.\n\nclass LitModel(LightningModule):\ndef __init__(self):\nsuper().__init__()\nself.prepare_data_per_node = True"
+  },
+  {
+    "index": 98,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html When set to False, Lightning does not automate the optimization process. This means you are responsible for handling\nyour optimizers. However, we do take care of precision and any accelerators used.\n\nSee manual optimization <common/optimization:Manual optimization> for details.\n\n```python\ndef __init__(self):\n    self.automatic_optimization = False\n\ndef training_step(self, batch, batch_idx):\n    opt = self.optimizers(use_pl_optimizer=True)\n\n    loss = ...\n    opt.zero_grad()\n    self.manual_backward(loss)\n    opt.step()\n```\nManual optimization is most useful for research topics like reinforcement learning, sparse coding, and GAN research.\nIt is required when you are using 2+ optimizers because with automatic optimization, you can only use one optimizer.\n\n```python\ndef __init__(self):\n    self.automatic_optimization = False\n\ndef training_step(self, batch, batch_idx):\n    # access your optimizers with use_pl_optimizer=False. Default is True\n    opt_a, opt_b = self.optimizers(use_pl_optimizer=True)\n\n    gen_loss = ...\n    opt_a.zero_grad()\n    self.manual_backward(gen_loss)\n    opt_a.step()\n\n    disc_loss = ...\n    opt_b.zero_grad()\n    self.manual_backward(disc_loss)\n    opt_b.step()\n```"
+  },
+  {
+    "index": 99,
+    "source_type": "docs",
+    "path": "docs/pytorch/stable/common/lightning_module.html",
+    "text": "docs/pytorch/stable/common/lightning_module.html Set and access example_input_array, which basically represents a single batch.\n\n```python\ndef __init__(self):\n    self.example_input_array = ...\n    self.generator = ...\n\ndef on_train_epoch_end(self):\n    # generate some images using the example_input_array\n    gen_images = self.generator(self.example_input_array)\n```\n--------------"
+  }
+]

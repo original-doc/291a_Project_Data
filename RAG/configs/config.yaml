@@ -1,0 +1,118 @@
+# PyTorch Lightning RAG System Configuration
+# Based on Code Embedding and Retrieval Research
+
+# Data Paths (relative to project root)
+data:
+  base_path: "../data/final_data"
+  # src_data: "src_filtered_data.json"
+  src_data: "../src/pytorch-lightning/src"
+  docs: "docs.json"
+  discussion: "discussions.json"
+  request_file: "../requests/final_request.json"
+
+# Embedding Configuration
+embeddings:
+  # Primary model for code-text alignment (UniXcoder-style)
+  primary_model: "microsoft/unixcoder-base"
+  # Alternative models
+  fallback_models:
+    - "microsoft/codebert-base"
+    - "sentence-transformers/all-mpnet-base-v2"
+  # Long-context model for extended documents
+  long_context_model: "bigcode/starcoder2-3b"
+  # Embedding dimensions
+  embedding_dim: 768
+  # Max tokens for standard embedding
+  max_tokens: 512
+  # Use GPU if available
+  device: "auto"
+  # Batch size for embedding generation
+  batch_size: 32
+
+# Chunking Configuration
+chunking:
+  # Source code chunking
+  code:
+    strategy: "ast_functional"
+    include_docstrings: true
+    include_class_context: true
+    max_chunk_size: 1024
+  # Documentation chunking
+  docs:
+    strategy: "recursive"
+    chunk_size: 512
+    chunk_overlap: 50
+    separators:
+      - "\n## "
+      - "\n### "
+      - "\n--- "
+      - "\n.. code::"
+      - "\n\n"
+      - "\n"
+  # Discussion chunking
+  discussion:
+    strategy: "paired"
+    include_metadata: true
+
+# Storage Configuration
+storage:
+  # Vector store settings
+  vector_store:
+    backend: "qdrant"  # Options: qdrant, faiss, chroma
+    host: "localhost"
+    port: 6333
+    collection_name: "pytorch_lightning_rag"
+    # Multi-vector indexing
+    multi_vector: true
+    vector_types:
+      - "code"
+      - "documentation"
+      - "discussion"
+  # Graph database settings
+  graph_db:
+    backend: "networkx"  # Options: networkx, neo4j
+    # Neo4j settings (if using neo4j)
+    neo4j:
+      uri: "bolt://localhost:7687"
+      user: "neo4j"
+      password: "password"
+    # Graph types to build
+    relations:
+      - "BELONGS_TO"
+      - "CALLS"
+      - "IMPORTS"
+      - "INHERITS"
+
+# Retrieval Configuration
+retrieval:
+  # Hybrid retrieval settings
+  hybrid:
+    dense_weight: 0.7
+    sparse_weight: 0.3
+  # Top-k results
+  top_k: 10
+  # Reranking
+  rerank:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    top_n: 5
+  # RepoCoder-style iterative retrieval
+  repocoder:
+    enabled: true
+    max_iterations: 2
+    draft_generation: true
+
+# LLM Configuration (for generation and draft creation)
+llm:
+  model: "gpt-3.5-turbo"  # Or local model
+  temperature: 0.1
+  max_tokens: 1024
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "recall@k"
+    - "mrr"
+    - "ndcg"
+    - "hit_rate"
+  k_values: [1, 3, 5, 10]

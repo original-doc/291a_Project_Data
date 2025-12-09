@@ -1,0 +1,632 @@
+[
+  {
+    "query_id": 1,
+    "query": "Does pytorch-lightning support saving and loading models from remote cloud storage?",
+    "query_type": "doc_reference",
+    "retrieved_docs": [
+      {
+        "index": 180,
+        "path": "docs/pytorch/stable/extensions/logging.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/logging.html Lightning supports saving logs to a variety of filesystems, including local..."
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 83,
+        "path": "docs/pytorch/stable/common/lightning_module.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/lightning_module.html Often times we train many versions of a model. You might share that mod..."
+      },
+      {
+        "index": 170,
+        "path": "docs/pytorch/stable/extensions/logging.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/logging.html Lightning offers automatic log functionalities for logging scalars, or manua..."
+      },
+      {
+        "index": 121,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The current epoch, updated after the epoch end hooks are run."
+      }
+    ],
+    "scores": [
+      0.87910013,
+      0.7409798967123213,
+      0.6615745838853759,
+      0.6097613199999999,
+      0.5939758789999999
+    ],
+    "latency": 0.04889702796936035
+  },
+  {
+    "query_id": 2,
+    "query": "How to figure out the slow part in the code?",
+    "query_type": "doc_reference",
+    "retrieved_docs": [
+      {
+        "index": 132,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of validation batches that will be used during the sanity-checking pa..."
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 233,
+        "path": "docs/pytorch/stable/starter/style_guide.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/starter/style_guide.html Lightning uses ~torch.utils.data.DataLoader to handle all the data flow thr..."
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      }
+    ],
+    "scores": [
+      0.7725967221726299,
+      0.7589017026954763,
+      0.7470706235778652,
+      0.7115226488783664,
+      0.7022120226982651
+    ],
+    "latency": 0.027599096298217773
+  },
+  {
+    "query_id": 3,
+    "query": "Does lightning require using torch dataloader as the data loader?",
+    "query_type": "doc_reference",
+    "retrieved_docs": [
+      {
+        "index": 233,
+        "path": "docs/pytorch/stable/starter/style_guide.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/starter/style_guide.html Lightning uses ~torch.utils.data.DataLoader to handle all the data flow thr..."
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 103,
+        "path": "docs/pytorch/stable/common/notebooks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/notebooks.html The multi-GPU capabilities in Jupyter are enabled by launching processes using..."
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 165,
+        "path": "docs/pytorch/stable/extensions/callbacks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/callbacks.html Here is the full API of methods available in the Callback base class.  The..."
+      }
+    ],
+    "scores": [
+      0.7014135416979905,
+      0.6675917617161173,
+      0.6539522163119525,
+      0.6347918169783009,
+      0.6345922903875141
+    ],
+    "latency": 0.04259943962097168
+  },
+  {
+    "query_id": 4,
+    "query": "How much improvement can be expected when using half precision compared to full precision?",
+    "query_type": "doc_reference",
+    "retrieved_docs": [
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 4,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16112",
+        "source_type": "discussion",
+        "display": "MLFlow UI and save_dir specification"
+      },
+      {
+        "index": 165,
+        "path": "docs/pytorch/stable/extensions/callbacks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/callbacks.html Here is the full API of methods available in the Callback base class.  The..."
+      },
+      {
+        "index": 103,
+        "path": "docs/pytorch/stable/common/notebooks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/notebooks.html The multi-GPU capabilities in Jupyter are enabled by launching processes using..."
+      },
+      {
+        "index": 174,
+        "path": "docs/pytorch/stable/extensions/logging.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/logging.html It may slow down training to log on every single batch. By default, Lightnin..."
+      }
+    ],
+    "scores": [
+      0.648481131211451,
+      0.6112281247540428,
+      0.5878403979478367,
+      0.58666402187856,
+      0.5662750439327393
+    ],
+    "latency": 0.030569791793823242
+  },
+  {
+    "query_id": 5,
+    "query": "Can I use two config files' configuration in one runtime?",
+    "query_type": "doc_reference",
+    "retrieved_docs": [
+      {
+        "index": 16,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13165",
+        "source_type": "discussion",
+        "display": "Effective batch size in DDP"
+      },
+      {
+        "index": 17,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13032",
+        "source_type": "discussion",
+        "display": "ddp help"
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      }
+    ],
+    "scores": [
+      0.849946915,
+      0.7797345470816723,
+      0.7645160974788938,
+      0.725262702159847,
+      0.6986056139158088
+    ],
+    "latency": 0.030559778213500977
+  },
+  {
+    "query_id": 6,
+    "query": "Training is taking a long time. How do I speed up the training for multiple datasets?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 174,
+        "path": "docs/pytorch/stable/extensions/logging.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/logging.html It may slow down training to log on every single batch. By default, Lightnin..."
+      },
+      {
+        "index": 131,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of training batches that will be used during trainer.fit()."
+      }
+    ],
+    "scores": [
+      0.8908944089999999,
+      0.7981922480351255,
+      0.7656626555101191,
+      0.6677655443166315,
+      0.6596948548496486
+    ],
+    "latency": 0.02983546257019043
+  },
+  {
+    "query_id": 7,
+    "query": "What do I need to pass into LightningCLI() to get it working? Also, please give an example.",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "index": 17,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13032",
+        "source_type": "discussion",
+        "display": "ddp help"
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 14,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13264",
+        "source_type": "discussion",
+        "display": "DDP: NCCL \" The server socket has failed to bind to...\""
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      }
+    ],
+    "scores": [
+      0.8763705111734544,
+      0.857387614156135,
+      0.8387092506717192,
+      0.8345944475798255,
+      0.8056217373617288
+    ],
+    "latency": 0.019390344619750977
+  },
+  {
+    "query_id": 8,
+    "query": "For defining a training step function, when should I use manual backward and what issues can arrise from using it?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "index": 7,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/14390",
+        "source_type": "discussion",
+        "display": "Proper way to do contrastive learning with DDP & PT-Lightning"
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 17,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13032",
+        "source_type": "discussion",
+        "display": "ddp help"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      }
+    ],
+    "scores": [
+      0.8576531559559037,
+      0.8447557445742389,
+      0.8045517663279256,
+      0.7774476258264322,
+      0.7748395077243795
+    ],
+    "latency": 0.041567325592041016
+  },
+  {
+    "query_id": 9,
+    "query": "init_meta_context() isn't available. What are some alternatives that have similar functionality?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "index": 103,
+        "path": "docs/pytorch/stable/common/notebooks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/notebooks.html The multi-GPU capabilities in Jupyter are enabled by launching processes using..."
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 17,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/13032",
+        "source_type": "discussion",
+        "display": "ddp help"
+      },
+      {
+        "index": 121,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The current epoch, updated after the epoch end hooks are run."
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      }
+    ],
+    "scores": [
+      0.7702751804574057,
+      0.7670178341850528,
+      0.7312083819097577,
+      0.6609081316150064,
+      0.6392743147636644
+    ],
+    "latency": 0.029061555862426758
+  },
+  {
+    "query_id": 10,
+    "query": "What parameters does the ModelCheckpoint callback accept and what do save_top_k and monitor do?",
+    "query_type": "api_usage",
+    "retrieved_docs": [
+      {
+        "index": 165,
+        "path": "docs/pytorch/stable/extensions/callbacks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/callbacks.html Here is the full API of methods available in the Callback base class.  The..."
+      },
+      {
+        "index": 121,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The current epoch, updated after the epoch end hooks are run."
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 132,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of validation batches that will be used during the sanity-checking pa..."
+      },
+      {
+        "index": 134,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of test batches that will be used during trainer.test()."
+      }
+    ],
+    "scores": [
+      0.7225023929761988,
+      0.6283260688104342,
+      0.6212860286026098,
+      0.6149275869182405,
+      0.6031880682646511
+    ],
+    "latency": 0.020424842834472656
+  },
+  {
+    "query_id": 11,
+    "query": "How do I set up early stopping in PyTorch Lightning that stops training when validation loss doesn't improve for 5 epochs, and saves the best model based on that metric?",
+    "query_type": "implementation",
+    "retrieved_docs": [
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 83,
+        "path": "docs/pytorch/stable/common/lightning_module.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/lightning_module.html Often times we train many versions of a model. You might share that mod..."
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 51,
+        "path": "docs/pytorch/stable/common/early_stopping.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/early_stopping.html You can stop and skip the rest of the current epoch early by overriding ~..."
+      }
+    ],
+    "scores": [
+      0.7513390892949795,
+      0.7324965579953125,
+      0.7216330216850769,
+      0.7197566534861406,
+      0.6890789877689154
+    ],
+    "latency": 0.021618366241455078
+  },
+  {
+    "query_id": 12,
+    "query": "My training is crashing with 'CUDA out of memory' error when using PyTorch Lightning Trainer. How can I reduce memory usage during training?",
+    "query_type": "debugging",
+    "retrieved_docs": [
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 131,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of training batches that will be used during trainer.fit()."
+      },
+      {
+        "index": 132,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of validation batches that will be used during the sanity-checking pa..."
+      }
+    ],
+    "scores": [
+      0.8706924487434209,
+      0.7844857764174773,
+      0.7245571632010457,
+      0.681982157166964,
+      0.6632670772093188
+    ],
+    "latency": 0.03413033485412598
+  },
+  {
+    "query_id": 13,
+    "query": "What's the difference between training_step and validation_step in LightningModule, and when is each one called during the training loop?",
+    "query_type": "conceptual",
+    "retrieved_docs": [
+      {
+        "index": 131,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of training batches that will be used during trainer.fit()."
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 132,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of validation batches that will be used during the sanity-checking pa..."
+      },
+      {
+        "index": 134,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of test batches that will be used during trainer.test()."
+      },
+      {
+        "index": 133,
+        "path": "docs/pytorch/stable/common/trainer.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/trainer.html The number of validation batches that will be used during trainer.fit() or train..."
+      }
+    ],
+    "scores": [
+      0.7569743840241796,
+      0.7400268166270129,
+      0.7338579455896486,
+      0.7188352878523202,
+      0.7082008159139077
+    ],
+    "latency": 0.028896808624267578
+  },
+  {
+    "query_id": 14,
+    "query": "How do I set up distributed training on 4 GPUs using DDP strategy in PyTorch Lightning with automatic batch size scaling and gradient accumulation?",
+    "query_type": "advanced_configuration",
+    "retrieved_docs": [
+      {
+        "index": 19,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/12867",
+        "source_type": "discussion",
+        "display": "How to get different random minibatch orders?"
+      },
+      {
+        "index": 3,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/16944",
+        "source_type": "discussion",
+        "display": "Current best practices to initialize massive (50B parameter+) models"
+      },
+      {
+        "index": 1,
+        "path": "https://github.com/Lightning-AI/pytorch-lightning/discussions/17490",
+        "source_type": "discussion",
+        "display": "Multiple Sequential trainings slows down speed"
+      },
+      {
+        "index": 170,
+        "path": "docs/pytorch/stable/extensions/logging.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/extensions/logging.html Lightning offers automatic log functionalities for logging scalars, or manua..."
+      },
+      {
+        "index": 103,
+        "path": "docs/pytorch/stable/common/notebooks.html",
+        "source_type": "docs",
+        "display": "docs/pytorch/stable/common/notebooks.html The multi-GPU capabilities in Jupyter are enabled by launching processes using..."
+      }
+    ],
+    "scores": [
+      0.8399701856184627,
+      0.6951452618953371,
+      0.6752267310398974,
+      0.6412091247676238,
+      0.6070424670772372
+    ],
+    "latency": 0.03271794319152832
+  }
+]
