@@ -91,13 +91,14 @@ def get_data_path(config: Dict[str, Any], data_type: str) -> Path:
 
 
 def load_json_files(directory: Path) -> List[Dict[str, Any]]:
-    """Load all JSON files from a directory"""
+    """Load all JSON and JSONL files from a directory"""
     data = []
     
     if not directory.exists():
         logger.warning(f"Directory does not exist: {directory}")
         return data
     
+    # 1. Load standard JSON files
     for file_path in directory.glob("*.json"):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -109,34 +110,133 @@ def load_json_files(directory: Path) -> List[Dict[str, Any]]:
                 else:
                     content['_source_file'] = str(file_path.name)
                     data.append(content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON file {file_path}: {e}")
         except Exception as e:
-            logger.error(f"Error loading file {file_path}: {e}")
+            logger.error(f"Error loading JSON file {file_path}: {e}")
+
+    # 2. Load JSONL files (Output from the Dataset Builder)
+    for file_path in directory.glob("*.jsonl"):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            item = json.loads(line)
+                            item['_source_file'] = str(file_path.name)
+                            data.append(item)
+                        except json.JSONDecodeError:
+                            continue
+        except Exception as e:
+            logger.error(f"Error loading JSONL file {file_path}: {e}")
     
     logger.info(f"Loaded {len(data)} items from {directory}")
     return data
 
 
+def load_python_files(directory: Path) -> List[Dict[str, Any]]:
+    """
+    Recursively load all Python files from a directory.
+    Includes filtering logic inspired by the Dataset Builder to avoid noise.
+    """
+    data = []
+    
+    if not directory.exists():
+        logger.warning(f"Directory does not exist: {directory}")
+        return data
+
+    # Exclusion patterns (Learned from Dataset Builder)
+    exclude_patterns = [
+        '.git', '__pycache__', '.egg-info', 'node_modules', 
+        '.tox', 'build', 'dist', 'setup.py'
+    ]
+    # Optionally exclude tests if you want a cleaner RAG knowledge base
+    exclude_tests = True 
+
+    logger.info(f"Scanning for .py files in {directory}...")
+
+    # Use rglob to find .py files recursively
+    for file_path in directory.rglob("*.py"):
+        path_str = str(file_path)
+        
+        # Check exclusion patterns
+        if any(ex in path_str for ex in exclude_patterns):
+            continue
+            
+        if exclude_tests and ('test' in path_str.lower() or 'tests' in path_str.lower()):
+            continue
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+                
+                # Construct a dictionary compatible with the pipeline
+                data.append({
+                    'code': content,
+                    'text': content, 
+                    'file_path': str(file_path),
+                    '_source_file': file_path.name,
+                    # Metadata placeholders
+                    'class_name': None,
+                    'method_name': None,
+                    'docstring': '',
+                    'func_name': None
+                })
+        except Exception as e:
+            logger.error(f"Error loading Python file {file_path}: {e}")
+            
+    logger.info(f"Loaded {len(data)} Python files from {directory} (after filtering)")
+    return data
+
+
 def load_src_data(config: Dict[str, Any]) -> List[CodeChunk]:
-    """Load and parse source code data"""
+    """
+    Load and parse source code data.
+    Supports:
+    1. Pre-processed JSON/JSONL files (from Dataset Builder)
+    2. Raw .py files (using recursive scanner)
+    """
     path = get_data_path(config, "src_data")
+    
+    # 1. Try loading pre-processed data (JSON/JSONL)
     raw_data = load_json_files(path)
+    
+    # 2. If no data found, assume raw source directory and scan .py files
+    if not raw_data:
+        logger.info(f"No JSON/JSONL files found in {path}. Scanning for raw .py files...")
+        raw_data = load_python_files(path)
     
     chunks = []
     for idx, item in enumerate(raw_data):
+        # MAPPING LOGIC: Supports both Builder output and legacy format
+        
+        # 1. Code Content
+        code = item.get('code', item.get('Code', ''))
+        
+        # 2. Documentation (Builder uses 'docstring', legacy uses 'Documentation')
+        doc = item.get('docstring', item.get('Documentation', item.get('Class Description', '')))
+        
+        # 3. Class Name
+        class_name = item.get('class_name', item.get('Class', None))
+        
+        # 4. Method Name (Builder uses 'func_name' often for qualified names, or extract from name)
+        method_name = item.get('method_name', item.get('Method', item.get('func_name', None)))
+        
+        # 5. File Path
+        file_path = item.get('path', item.get('Path', item.get('file_path', None)))
+
         chunk = CodeChunk(
             id=f"code_{idx}",
-            text=item.get('text', ''),
-            code=item.get('Code', item.get('code', '')),
-            documentation=item.get('Documentation', item.get('Class Description', '')),
-            class_name=item.get('Class', item.get('class_name', None)),
-            method_name=item.get('Method', item.get('method_name', None)),
-            file_path=item.get('Path', item.get('file_path', None)),
+            text=item.get('text', code), # Fallback to code if no specific text
+            code=code,
+            documentation=doc,
+            class_name=class_name,
+            method_name=method_name,
+            file_path=file_path,
             parent_index=item.get('parent_index', None),
             metadata={
                 'source_file': item.get('_source_file', ''),
-                'original_index': idx
+                'original_index': idx,
+                'is_synthetic': item.get('is_synthetic_docstring', False),
+                'complexity': item.get('complexity', 0)
             }
         )
         chunks.append(chunk)
@@ -150,7 +250,6 @@ def load_docs_data(config: Dict[str, Any]) -> List[DocChunk]:
     path = get_data_path(config, "docs")
     raw_data: List[Dict[str, Any]] = []
 
-    # Support both a directory of JSON files and a single JSON file
     if path.is_dir():
         raw_data = load_json_files(path)
     elif path.is_file():
@@ -160,16 +259,12 @@ def load_docs_data(config: Dict[str, Any]) -> List[DocChunk]:
 
             if isinstance(content, list):
                 for item in content:
-                    # Track where this item came from for downstream debugging
                     item.setdefault('_source_file', path.name)
                 raw_data = content
             else:
                 content.setdefault('_source_file', path.name)
                 raw_data = [content]
-
             logger.info(f"Loaded {len(raw_data)} documentation items from file {path}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing documentation JSON file {path}: {e}")
         except Exception as e:
             logger.error(f"Error loading documentation file {path}: {e}")
     else:
@@ -199,7 +294,6 @@ def load_discussion_data(config: Dict[str, Any]) -> List[DiscussionChunk]:
     path = get_data_path(config, "discussion")
     raw_data: List[Dict[str, Any]] = []
 
-    # Support both a directory of JSON files and a single JSON file
     if path.is_dir():
         raw_data = load_json_files(path)
     elif path.is_file():
@@ -214,10 +308,7 @@ def load_discussion_data(config: Dict[str, Any]) -> List[DiscussionChunk]:
             else:
                 content.setdefault('_source_file', path.name)
                 raw_data = [content]
-
             logger.info(f"Loaded {len(raw_data)} discussion items from file {path}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing discussion JSON file {path}: {e}")
         except Exception as e:
             logger.error(f"Error loading discussion file {path}: {e}")
     else:
@@ -253,14 +344,16 @@ def load_request_data(config: Dict[str, Any]) -> List[Dict[str, Any]]:
         logger.warning(f"Request file does not exist: {path}")
         return []
     
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    if isinstance(data, dict):
-        data = [data]
-    
-    logger.info(f"Loaded {len(data)} evaluation requests")
-    return data
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            data = [data]
+        logger.info(f"Loaded {len(data)} evaluation requests")
+        return data
+    except Exception as e:
+        logger.error(f"Error loading request file: {e}")
+        return []
 
 
 def load_all_data(config: Dict[str, Any]) -> Dict[str, List]:
@@ -313,7 +406,6 @@ def chunk_to_dict(chunk: Union[CodeChunk, DocChunk, DiscussionChunk]) -> Dict[st
 def get_chunk_text(chunk: Union[CodeChunk, DocChunk, DiscussionChunk]) -> str:
     """Extract the main text content from any chunk type"""
     if isinstance(chunk, CodeChunk):
-        # Combine code and documentation for embedding
         parts = []
         if chunk.documentation:
             parts.append(chunk.documentation)
@@ -323,7 +415,6 @@ def get_chunk_text(chunk: Union[CodeChunk, DocChunk, DiscussionChunk]) -> str:
     elif isinstance(chunk, DocChunk):
         return chunk.text
     elif isinstance(chunk, DiscussionChunk):
-        # Combine title, body, and answer
         parts = [chunk.title, chunk.body]
         if chunk.answer:
             parts.append(chunk.answer)
@@ -333,11 +424,9 @@ def get_chunk_text(chunk: Union[CodeChunk, DocChunk, DiscussionChunk]) -> str:
 
 
 if __name__ == "__main__":
-    # Test data loading
     try:
         config = load_config()
         print("Configuration loaded successfully")
-        
         data = load_all_data(config)
         for key, items in data.items():
             print(f"{key}: {len(items)} items")

@@ -5,7 +5,7 @@
 data:
   base_path: "../data/final_data"
   # src_data: "src_filtered_data.json"
-  src_data: "../src/pytorch-lightning/src"
+  src_data: "../src/pytorch-lightning/src/lightning/pytorch"
   docs: "docs.json"
   discussion: "discussions.json"
   request_file: "../requests/final_request.json"
