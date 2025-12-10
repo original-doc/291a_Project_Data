@@ -104,17 +104,10 @@ class RAGEvaluator:
         
         queries = []
         for idx, item in enumerate(data):
-            relevant_docs = item.get('relevant_docs', item.get('relevant', []))
-            relevant_texts = [doc.get('text', '') for doc in relevant_docs]
-            
-            # Create sequential IDs for relevant documents
-            relevant_ids = []
-            relevance_scores = []
-            for doc_idx, doc in enumerate(relevant_docs):
-                doc_id = doc_idx
-                relevant_ids.append(str(doc_id))
-                if 'score' in doc:
-                    relevance_scores.append(doc.get('score', 1.0))
+            relevant_docs = item['relevant_docs']
+            relevant_texts = [doc['text'] for doc in relevant_docs]
+            relevant_ids = [i for i in range(len(relevant_docs))]
+            relevance_scores = [doc['score'] for doc in relevant_docs]
             
             query = EvaluationQuery(
                 query_id=item.get('query_id', item.get('id', f"q{idx}")),
@@ -127,6 +120,7 @@ class RAGEvaluator:
             queries.append(query)
         
         logger.info(f"Loaded {len(queries)} evaluation queries")
+        __import__("IPython").embed()
         return queries
     
     def recall_at_k(

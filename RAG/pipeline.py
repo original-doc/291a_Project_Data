@@ -355,7 +355,8 @@ class PyTorchLightningRAG:
             logger.info(f"Embedding {len(processed_code)} code chunks...")
             
             batch_size = self.config['embeddings'].get('batch_size', 32)
-            code_texts = [c['text'] for c in processed_code]
+            # code_texts = [c['text'] for c in processed_code]
+            code_texts = [f"{c['method_name']} {c['docstring']} {c['code']}" for c in processed_code]
             all_embeddings = []
             
             for i in range(0, len(code_texts), batch_size):
@@ -465,6 +466,7 @@ class PyTorchLightningRAG:
         self.initialize_components(build_mode=True)
         self.load_data()
         processed_code, processed_docs, processed_discussions = self.process_chunks()
+        __import__("IPython").embed()
         self.build_index(processed_code, processed_docs, processed_discussions)
         self.save()
         logger.info("RAG system built successfully!")
