@@ -27,23 +27,28 @@ class EvaluationQuery:
     """Represents an evaluation query with ground truth"""
     query_id: str
     query_text: str
-    relevant_ids: List[str]  # Synthetic ground-truth IDs (derived from texts)
+    relevant_ids: List[str]  # Ground-truth IDs (sequential: "0", "1", "2", ...)
     relevant_texts: List[str]  # Ground-truth passages to compare against
-    relevance_scores: Optional[Dict[str, float]] = None  # Optional relevance grades
+    relevance_scores: Optional[List[float]] = None  # Optional relevance grades
     metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class RetrievalMatch:
+    """Represents a retrieved result with its matching information"""
+    retriever_id: str  # Original ID from the retriever system
+    text: str  # Retrieved text content
+    score: float  # Retrieval score
+    matched_gt_id: Optional[str]  # Ground-truth ID if matched, else None
 
 
 @dataclass
 class EvaluationResult:
     """Stores evaluation results for a single query"""
     query_id: str
-    retrieved_raw_ids: List[str]
-    retrieved_ids: List[str]
-    retrieved_texts: List[str]
-    retrieved_scores: List[float]
-    matched_relevant_ids: List[Optional[str]]
-    relevant_ids: Set[str]
-    metrics: Dict[str, float]
+    matches: List[RetrievalMatch]  # All retrieved results with match info
+    relevant_ids: Set[str]  # Ground-truth IDs for this query
+    metrics: Dict[str, float]  # Computed metrics
     latency_ms: float
 
 
@@ -101,15 +106,14 @@ class RAGEvaluator:
             relevant_docs = item.get('relevant_docs', item.get('relevant', []))
             relevant_texts = [doc.get('text', '') for doc in relevant_docs]
             
-            # Create deterministic IDs from request doc metadata so metrics can
-            # operate on stable identifiers while comparisons are text-based.
+            # Create sequential IDs for relevant documents
             relevant_ids = []
-            relevance_scores = {}
+            relevance_scores = []
             for doc_idx, doc in enumerate(relevant_docs):
-                doc_id = doc.get('id') or f"{doc.get('file', 'unknown')}::{doc.get('entry_filename', 'unknown')}::{doc.get('index', doc_idx)}"
+                doc_id = doc_idx
                 relevant_ids.append(str(doc_id))
                 if 'score' in doc:
-                    relevance_scores[str(doc_id)] = doc.get('score', 1.0)
+                    relevance_scores.append(doc.get('score', 1.0))
             
             query = EvaluationQuery(
                 query_id=item.get('query_id', item.get('id', f"q{idx}")),
@@ -192,17 +196,22 @@ class RAGEvaluator:
     def dcg_at_k(
         self,
         retrieved: List[str],
-        relevance_scores: Dict[str, float],
+        relevance_map: Dict[str, float],
         k: int
     ) -> float:
         """
         Compute Discounted Cumulative Gain@K.
         
         DCG@K = Σ (2^rel - 1) / log2(i + 2) for i in [0, k)
+        
+        Args:
+            retrieved: List of retrieved document IDs
+            relevance_map: Dictionary mapping doc_id to relevance score
+            k: Cutoff rank
         """
         dcg = 0.0
         for i, doc_id in enumerate(retrieved[:k]):
-            rel = relevance_scores.get(doc_id, 0.0)
+            rel = relevance_map.get(doc_id, 0.0)
             dcg += (2**rel - 1) / np.log2(i + 2)
         return dcg
     
@@ -210,29 +219,51 @@ class RAGEvaluator:
         self,
         retrieved: List[str],
         relevant: Set[str],
-        relevance_scores: Optional[Dict[str, float]],
+        relevance_scores: Optional[List[float]],
         k: int
     ) -> float:
         """
         Compute Normalized Discounted Cumulative Gain@K.
         
         NDCG@K = DCG@K / IDCG@K
+        
+        Args:
+            retrieved: List of retrieved document IDs (matched ground-truth IDs)
+            relevant: Set of all relevant document IDs
+            relevance_scores: Optional list of relevance scores (parallel to relevant IDs)
+            k: Cutoff rank
         """
-        # If no relevance scores, use binary (1 for relevant, 0 otherwise)
+        if not relevant:
+            return 0.0
+        
+        # Convert relevant set to sorted list for consistent indexing
+        relevant_list = sorted(list(relevant))
+        
+        # Create relevance map: doc_id -> score
         if relevance_scores is None:
-            relevance_scores = {doc_id: 1.0 for doc_id in relevant}
+            # Binary relevance: 1 for relevant, 0 for non-relevant
+            relevance_map = {doc_id: 1.0 for doc_id in relevant_list}
+        else:
+            # Use provided scores (assume parallel to ground-truth order)
+            relevance_map = {}
+            for i, doc_id in enumerate(relevant_list):
+                if i < len(relevance_scores):
+                    relevance_map[doc_id] = relevance_scores[i]
+                else:
+                    relevance_map[doc_id] = 1.0  # Default to 1.0 if scores missing
         
         # Compute DCG
-        dcg = self.dcg_at_k(retrieved, relevance_scores, k)
+        dcg = self.dcg_at_k(retrieved, relevance_map, k)
         
-        # Compute IDCG (ideal DCG)
+        # Compute IDCG (ideal DCG with perfect ranking)
+        # Sort by relevance score descending
         ideal_ranking = sorted(
-            relevance_scores.items(),
+            relevance_map.items(),
             key=lambda x: x[1],
             reverse=True
         )[:k]
-        ideal_scores = {doc_id: score for doc_id, score in ideal_ranking}
-        idcg = self.dcg_at_k([doc_id for doc_id, _ in ideal_ranking], ideal_scores, k)
+        ideal_ids = [doc_id for doc_id, _ in ideal_ranking]
+        idcg = self.dcg_at_k(ideal_ids, relevance_map, k)
         
         if idcg == 0:
             return 0.0
@@ -242,11 +273,7 @@ class RAGEvaluator:
     def evaluate_single(
         self,
         query: EvaluationQuery,
-        retrieved_raw_ids: List[str],
-        retrieved_ids: List[str],
-        retrieved_texts: List[str],
-        retrieved_scores: List[float],
-        matched_relevant_ids: List[Optional[str]],
+        matches: List[RetrievalMatch],
         latency_ms: float = 0.0
     ) -> EvaluationResult:
         """
@@ -254,45 +281,43 @@ class RAGEvaluator:
         
         Args:
             query: EvaluationQuery with ground truth
-            retrieved_raw_ids: Original retrieved IDs from the retriever
-            retrieved_ids: Matched ground-truth IDs (placeholders for metrics)
-            retrieved_texts: Retrieved passages
-            retrieved_scores: List of retrieval scores
-            matched_relevant_ids: List of matched ground-truth IDs (or None)
+            matches: List of RetrievalMatch objects with matching information
             latency_ms: Query latency in milliseconds
             
         Returns:
             EvaluationResult with all computed metrics
         """
-        relevant = set(query.relevant_ids)
+        relevant_ids = set(query.relevant_ids)
+        
+        # Extract matched ground-truth IDs for metric calculation
+        # Only include IDs that actually matched (not None)
+        matched_gt_ids = [m.matched_gt_id for m in matches if m.matched_gt_id is not None]
+        
+        # Compute metrics
         metrics = {}
         
         for k in self.k_values:
             if 'recall' in self.metrics:
-                metrics[f'recall@{k}'] = self.recall_at_k(retrieved_ids, relevant, k)
+                metrics[f'recall@{k}'] = self.recall_at_k(matched_gt_ids, relevant_ids, k)
             
             if 'precision' in self.metrics:
-                metrics[f'precision@{k}'] = self.precision_at_k(retrieved_ids, relevant, k)
+                metrics[f'precision@{k}'] = self.precision_at_k(matched_gt_ids, relevant_ids, k)
             
             if 'hit_rate' in self.metrics:
-                metrics[f'hit_rate@{k}'] = self.hit_rate_at_k(retrieved_ids, relevant, k)
+                metrics[f'hit_rate@{k}'] = self.hit_rate_at_k(matched_gt_ids, relevant_ids, k)
             
             if 'ndcg' in self.metrics:
                 metrics[f'ndcg@{k}'] = self.ndcg_at_k(
-                    retrieved_ids, relevant, query.relevance_scores, k
+                    matched_gt_ids, relevant_ids, query.relevance_scores, k
                 )
         
         if 'mrr' in self.metrics:
-            metrics['mrr'] = self.mrr(retrieved_ids, relevant)
+            metrics['mrr'] = self.mrr(matched_gt_ids, relevant_ids)
         
         return EvaluationResult(
             query_id=query.query_id,
-            retrieved_raw_ids=retrieved_raw_ids,
-            retrieved_ids=retrieved_ids,
-            retrieved_texts=retrieved_texts,
-            retrieved_scores=retrieved_scores,
-            matched_relevant_ids=matched_relevant_ids,
-            relevant_ids=relevant,
+            matches=matches,
+            relevant_ids=relevant_ids,
             metrics=metrics,
             latency_ms=latency_ms
         )
@@ -313,31 +338,52 @@ class RAGEvaluator:
         b_norm = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-10)
         return np.clip(a_norm @ b_norm.T, -1.0, 1.0)
     
-    def _match_by_embedding(
+    def _match_retrieved_to_groundtruth(
         self,
+        retrieved_texts: List[str],
         gt_ids: List[str],
-        gt_embeddings: np.ndarray,
-        retrieved_embeddings: np.ndarray,
+        gt_texts: List[str],
+        embedder,
         sim_threshold: float = 0.3
     ) -> List[Optional[str]]:
         """
-        For each retrieved embedding, find the ground-truth passage with the
-        highest cosine similarity. If the best similarity is below threshold,
-        return None for that retrieved item.
+        Match each retrieved text to ground-truth by embedding similarity.
+        
+        Args:
+            retrieved_texts: List of retrieved text passages
+            gt_ids: List of ground-truth IDs (sequential: "0", "1", "2", ...)
+            gt_texts: List of ground-truth text passages
+            embedder: Embedder to use for computing embeddings
+            sim_threshold: Minimum cosine similarity to consider a match
+            
+        Returns:
+            List of matched ground-truth IDs (or None if no match above threshold)
         """
+        if not retrieved_texts or not gt_texts:
+            return [None] * len(retrieved_texts)
+        
+        # Embed both retrieved and ground-truth texts
+        retrieved_embeddings = self._embed_texts(embedder, retrieved_texts)
+        gt_embeddings = self._embed_texts(embedder, gt_texts)
+        
         if retrieved_embeddings.size == 0 or gt_embeddings.size == 0:
-            return [None] * retrieved_embeddings.shape[0]
+            return [None] * len(retrieved_texts)
         
+        # Compute similarity matrix: [num_retrieved, num_gt]
         sim_matrix = self._cosine_sim_matrix(retrieved_embeddings, gt_embeddings)
-        best_idx = sim_matrix.argmax(axis=1)
-        best_sim = sim_matrix.max(axis=1)
         
+        # For each retrieved text, find best matching ground-truth
+        best_gt_idx = sim_matrix.argmax(axis=1)
+        best_similarity = sim_matrix.max(axis=1)
+        
+        # Return ground-truth ID if similarity above threshold, else None
         matches = []
-        for sim, idx in zip(best_sim, best_idx):
-            if sim >= sim_threshold:
-                matches.append(gt_ids[idx])
+        for similarity, gt_idx in zip(best_similarity, best_gt_idx):
+            if similarity >= sim_threshold:
+                matches.append(gt_ids[gt_idx])
             else:
                 matches.append(None)
+        
         return matches
     
     def evaluate_retriever(
@@ -360,8 +406,8 @@ class RAGEvaluator:
             vector_types: Types of vectors to search (default: all types)
             expand_context: Whether to expand context using graph
             use_hybrid: Whether to use hybrid search (dense + sparse)
-            sim_threshold: Cosine similarity threshold to count a retrieved
-                passage as matching a ground-truth passage
+            sim_threshold: Cosine similarity threshold for matching retrieved
+                passages to ground-truth
             
         Returns:
             Dictionary with aggregated metrics
@@ -369,15 +415,17 @@ class RAGEvaluator:
         if vector_types is None:
             vector_types = ['code', 'documentation', 'discussion']
         
-        # We need an embedder to embed both ground-truth and retrieved texts.
+        # Get embedder for matching retrieved texts to ground-truth
         embedder = getattr(retriever, "embedder", None)
         if embedder is None:
-            raise ValueError("Retriever must expose an 'embedder' attribute for embedding-based evaluation.")
+            raise ValueError(
+                "Retriever must expose an 'embedder' attribute for embedding-based evaluation."
+            )
         
         results = []
         
         for query in queries:
-            # Time the retrieval
+            # Perform retrieval and measure latency
             start_time = time.time()
             retrieved = retriever.search(
                 query.query_text,
@@ -388,39 +436,38 @@ class RAGEvaluator:
             )
             latency_ms = (time.time() - start_time) * 1000
             
-            # Extract IDs and scores
-            retrieved_raw_ids = [r.id for r in retrieved]
-            retrieved_scores = [r.score for r in retrieved]
+            # Extract retrieved information
             retrieved_texts = [getattr(r, 'content', '') for r in retrieved]
             
-            # Embed ground-truth and retrieved texts, then match by cosine similarity
-            gt_embeddings = self._embed_texts(embedder, query.relevant_texts)
-            retrieved_embeddings = self._embed_texts(embedder, retrieved_texts)
-            matched_relevant_ids = self._match_by_embedding(
-                query.relevant_ids,
-                gt_embeddings,
-                retrieved_embeddings,
+            # Match retrieved texts to ground-truth by embedding similarity
+            matched_gt_ids = self._match_retrieved_to_groundtruth(
+                retrieved_texts=retrieved_texts,
+                gt_ids=query.relevant_ids,
+                gt_texts=query.relevant_texts,
+                embedder=embedder,
                 sim_threshold=sim_threshold
             )
-            metric_ids = [
-                match_id if match_id is not None else f"nomatch_{i}"
-                for i, match_id in enumerate(matched_relevant_ids)
+            
+            # Build RetrievalMatch objects
+            matches = [
+                RetrievalMatch(
+                    retriever_id=r.id,
+                    text=getattr(r, 'content', ''),
+                    score=r.score,
+                    matched_gt_id=matched_gt_ids[i]
+                )
+                for i, r in enumerate(retrieved)
             ]
             
-            # Evaluate
+            # Evaluate this query
             result = self.evaluate_single(
-                query,
-                retrieved_raw_ids=retrieved_raw_ids,
-                retrieved_ids=metric_ids,
-                retrieved_texts=retrieved_texts,
-                retrieved_scores=retrieved_scores,
-                matched_relevant_ids=matched_relevant_ids,
+                query=query,
+                matches=matches,
                 latency_ms=latency_ms
             )
-            __import__("IPython").embed()
             results.append(result)
         
-        # Aggregate metrics
+        # Aggregate metrics across all queries
         return self._aggregate_results(results)
     
     def _aggregate_results(
@@ -629,25 +676,31 @@ if __name__ == "__main__":
     
     evaluator = RAGEvaluator()
     
-    # Create sample query
+    # Create sample query with ground-truth
     query = EvaluationQuery(
         query_id="test_1",
         query_text="How to define a training step?",
-        relevant_ids=["doc_1", "doc_3", "doc_5"]
+        relevant_ids=["0", "1", "2"],  # Ground-truth IDs
+        relevant_texts=["GT passage 0", "GT passage 1", "GT passage 2"]
     )
     
-    # Simulate retrieval results
-    retrieved_ids = ["doc_2", "doc_1", "doc_4", "doc_3", "doc_6"]
-    retrieved_scores = [0.9, 0.8, 0.7, 0.6, 0.5]
+    # Simulate retrieval results with matches
+    matches = [
+        RetrievalMatch("ret_1", "Some text", 0.9, None),      # No match
+        RetrievalMatch("ret_2", "GT passage 0", 0.8, "0"),    # Matched to GT 0
+        RetrievalMatch("ret_3", "Other text", 0.7, None),     # No match
+        RetrievalMatch("ret_4", "GT passage 1", 0.6, "1"),    # Matched to GT 1
+        RetrievalMatch("ret_5", "More text", 0.5, None),      # No match
+    ]
     
     # Evaluate
-    result = evaluator.evaluate_single(query, retrieved_ids, retrieved_scores)
+    result = evaluator.evaluate_single(query, matches, latency_ms=50.0)
     
     print("\nEvaluation Results:")
     for metric, value in result.metrics.items():
         print(f"  {metric}: {value:.4f}")
     
     print("\nExpected values:")
-    print("  recall@1: 0.0 (doc_2 not relevant)")
-    print("  recall@3: 0.333 (doc_1 is relevant, 1/3)")
-    print("  mrr: 0.5 (first relevant at position 2)")
+    print("  recall@1: 0.0 (first result has no match)")
+    print("  recall@3: 0.333 (1 matched out of 3 relevant)")
+    print("  mrr: 0.5 (first match at position 2)")
