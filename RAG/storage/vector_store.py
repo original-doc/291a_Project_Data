@@ -411,7 +411,7 @@ class QdrantVectorStore(BaseVectorStore):
         
         results = self.client.search(
             collection_name=coll_name,
-            query_vector=query_vector.tolist(),
+            query_vector=query_vector.flatten().tolist(),
             limit=top_k,
             query_filter=qdrant_filter
         )

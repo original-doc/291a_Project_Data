@@ -8,7 +8,7 @@ data:
   src_data: "../src/pytorch-lightning/src"
   docs: "docs.json"
   discussion: "discussions.json"
-  request_file: "../requests/final_request.json"
+  request_file: "../../requests/final_requests.json"
 
 # Embedding Configuration
 embeddings:

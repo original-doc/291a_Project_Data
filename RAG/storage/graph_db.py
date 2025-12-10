@@ -341,6 +341,118 @@ class RepositorySemanticGraph:
         
         logger.info(f"Built graph with {len(self._node_index)} nodes")
     
+    def build_from_docs(
+        self,
+        doc_chunks: List[Dict[str, Any]],
+        link_to_code: bool = True
+    ):
+        """
+        Add documentation nodes to the graph and link them to relevant code.
+        
+        Args:
+            doc_chunks: List of documentation chunk dictionaries
+            link_to_code: Whether to create REFERENCES edges to related code nodes
+        """
+        doc_node_ids = []
+        
+        for idx, doc in enumerate(doc_chunks):
+            node_id = doc.get('id', f"doc_{idx}")
+            
+            self.add_node(
+                node_id=node_id,
+                node_type='documentation',
+                name=doc.get('section', doc.get('source_file', f'Doc {idx}')),
+                text=doc.get('text', ''),
+                source_file=doc.get('source_file', ''),
+                has_code=doc.get('has_code', False),
+                section=doc.get('section', '')
+            )
+            doc_node_ids.append(node_id)
+        
+        # Create REFERENCES edges between docs and code
+        if link_to_code:
+            self._link_docs_to_code(doc_chunks, doc_node_ids)
+        
+        logger.info(f"Added {len(doc_chunks)} documentation nodes")
+    
+    def _link_docs_to_code(
+        self,
+        doc_chunks: List[Dict[str, Any]],
+        doc_node_ids: List[str]
+    ):
+        """
+        Create REFERENCES edges between documentation and code nodes.
+        
+        Analyzes documentation content and section titles to find references to:
+        - Class names
+        - Method/function names
+        - Module paths
+        """
+        # Build lookup indices for code entities
+        class_name_to_nodes = {}
+        method_name_to_nodes = {}
+        
+        for node in self._node_index.values():
+            if node.type == 'class':
+                class_name_to_nodes[node.name.lower()] = node.id
+            elif node.type in ('method', 'function'):
+                if node.name.lower() not in method_name_to_nodes:
+                    method_name_to_nodes[node.name.lower()] = []
+                method_name_to_nodes[node.name.lower()].append(node.id)
+        
+        logger.info(f"Linking docs to code: {len(class_name_to_nodes)} classes, {len(method_name_to_nodes)} methods/functions available")
+        
+        # Track edge creation statistics
+        class_edges_created = 0
+        method_edges_created = 0
+        docs_with_links = 0
+        
+        # Link documentation to code
+        for doc_chunk, doc_node_id in zip(doc_chunks, doc_node_ids):
+            text = (doc_chunk.get('text') or '').lower()
+            section = (doc_chunk.get('section') or '').lower()
+            combined_text = f"{section} {text}"
+            
+            edges_for_this_doc = 0
+            
+            # Check for class references
+            for class_name, class_node_id in class_name_to_nodes.items():
+                # Look for class name in section title or text
+                if class_name in combined_text:
+                    self.add_edge(
+                        doc_node_id,
+                        class_node_id,
+                        'REFERENCES',
+                        context='documentation'
+                    )
+                    class_edges_created += 1
+                    edges_for_this_doc += 1
+            
+            # Check for method/function references
+            for method_name, method_node_ids in method_name_to_nodes.items():
+                if len(method_name) < 3:  # Skip very short names to reduce false positives
+                    continue
+                    
+                if method_name in combined_text:
+                    for method_node_id in method_node_ids:
+                        self.add_edge(
+                            doc_node_id,
+                            method_node_id,
+                            'REFERENCES',
+                            context='documentation'
+                        )
+                        method_edges_created += 1
+                        edges_for_this_doc += 1
+            
+            if edges_for_this_doc > 0:
+                docs_with_links += 1
+        
+        total_edges = class_edges_created + method_edges_created
+        logger.info(f"Created {total_edges} documentation-code REFERENCES edges:")
+        logger.info(f"  - {class_edges_created} edges to classes")
+        logger.info(f"  - {method_edges_created} edges to methods/functions")
+        logger.info(f"  - {docs_with_links}/{len(doc_chunks)} docs have at least one link to code")
+    
     def build_from_discussions(
         self,
         discussions: List[Dict[str, Any]],

@@ -35,7 +35,7 @@ data:
   base_path: ../data/final_data
   discussion: discussions.json
   docs: docs.json
-  request_file: ../requests/final_request.json
+  request_file: ../../requests/final_requests.json
   src_data: ../src/pytorch-lightning/src
 embeddings:
   batch_size: 32

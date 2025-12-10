@@ -288,6 +288,9 @@ class PyTorchLightningRAG:
                 payloads=processed_docs,
                 vector_type='documentation'
             )
+            
+            # Add documentation to graph and link to code
+            self.graph_db.build_from_docs(processed_docs, link_to_code=True)
             logger.info(f"Indexed {len(processed_docs)} documentation chunks")
         
         # Embed and index discussions
