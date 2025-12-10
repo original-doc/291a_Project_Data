@@ -1,5 +1,6 @@
 baselines/faiss/faiss_result/*
-
+RAG/saved_index/*
+RAG/evaluation_results.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
