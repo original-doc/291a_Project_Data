@@ -9,6 +9,7 @@ from .data_utils import (
     load_discussion_data,
     load_request_data,
     load_all_data,
+    load_python_files,  # Added this
     CodeChunk,
     DocChunk,
     DiscussionChunk,
@@ -23,6 +24,7 @@ __all__ = [
     'load_discussion_data',
     'load_request_data',
     'load_all_data',
+    'load_python_files',  # Added this
     'CodeChunk',
     'DocChunk',
     'DiscussionChunk',

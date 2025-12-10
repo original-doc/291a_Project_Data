@@ -36,7 +36,7 @@ data:
   discussion: discussions.json
   docs: docs.json
   request_file: ../../requests/final_requests.json
-  src_data: ../src/pytorch-lightning/src
+  src_data: ../src/pytorch-lightning/src/lightning/pytorch
 embeddings:
   batch_size: 32
   device: auto

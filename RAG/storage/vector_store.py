@@ -375,9 +375,10 @@ class QdrantVectorStore(BaseVectorStore):
         """Add vectors to Qdrant"""
         coll_name = f"{self.collection_name}_{vector_type}"
         
+        # FIX: Replaced 'id=idx' with 'id=ext_id' to use the actual unique IDs
         points = [
             self.qdrant_models['PointStruct'](
-                id=idx,
+                id=ext_id,   # <--- FIX: Using the real unique ID here
                 vector=vec.tolist(),
                 payload={**payload, '_id': ext_id}
             )
