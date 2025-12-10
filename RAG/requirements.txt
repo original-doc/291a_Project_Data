@@ -10,7 +10,7 @@ transformers>=4.30.0
 
 # Vector stores
 faiss-cpu>=1.7.4  # Use faiss-gpu for GPU support
-qdrant-client>=1.5.4
+qdrant-client=1.15.1
 
 # BM25 for sparse retrieval
 rank_bm25>=0.2.2
