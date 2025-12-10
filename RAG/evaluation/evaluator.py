@@ -120,7 +120,6 @@ class RAGEvaluator:
             queries.append(query)
         
         logger.info(f"Loaded {len(queries)} evaluation queries")
-        __import__("IPython").embed()
         return queries
     
     def recall_at_k(
