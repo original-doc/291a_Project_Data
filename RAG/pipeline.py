@@ -125,16 +125,16 @@ class PyTorchLightningRAG:
         # Initialize vector store
         from storage import create_vector_store
         
-        # --- Clear old collections to ensure clean build ---
-        try:
-            from qdrant_client import QdrantClient
-            temp_client = QdrantClient("http://localhost:6333")
-            for name in ["pytorch_lightning_code", "pytorch_lightning_documentation", "pytorch_lightning_discussion"]:
-                temp_client.delete_collection(name)
-            logger.info("🗑️  Deleted old collections to ensure clean build.")
-        except Exception as e:
-            logger.warning(f"Could not delete collection (might not exist yet): {e}")
-        # -------------------------------------------------
+        # # --- Clear old collections to ensure clean build ---
+        # try:
+        #     from qdrant_client import QdrantClient
+        #     temp_client = QdrantClient("http://localhost:6333")
+        #     for name in ["pytorch_lightning_code", "pytorch_lightning_documentation", "pytorch_lightning_discussion"]:
+        #         temp_client.delete_collection(name)
+        #     logger.info("🗑️  Deleted old collections to ensure clean build.")
+        # except Exception as e:
+        #     logger.warning(f"Could not delete collection (might not exist yet): {e}")
+        # # -------------------------------------------------
 
         self.vector_store = create_vector_store(
             backend=self.config['storage']['vector_store'].get('backend', 'qdrant'),
@@ -496,15 +496,50 @@ def main():
         print("Enter your queries (type 'quit' to exit):\n")
         while True:
             query = input("Query: ").strip()
-            if query.lower() in ('quit', 'exit', 'q'): break
-            if not query: continue
+            
+            if query.lower() in ('quit', 'exit', 'q'):
+                break
+            
+            if not query:
+                continue
+            
+            # 1. Get results
             results = rag.query(query, top_k=5)
-            print(f"\nFound {len(results)} results:\n")
+            
+            print(f"\n{'='*60}")
+            print(f"Found {len(results)} results for: {query}")
+            print(f"{'='*60}\n")
+            
             for i, r in enumerate(results, 1):
-                print(f"{i}. [{r['type']}] Score: {r['score']:.4f}")
-                print(f"   ID: {r['id']}")
-                print(f"   Content: {r['content'][:200]}...")
-                print()
+                print(f"Result {i}")
+                print(f"--------")
+                print(f"Type:       [{r['type']}]")
+                print(f"Score:      {r['score']:.4f}")
+                print(f"ID:         {r['id']}")
+                # print(f"Original ID: {r.get('metadata', {}).get('original_id', 'N/A')}") # Optional: if you stored it
+                print(f"Source:     {r['metadata'].get('file_path') or r['metadata'].get('source_file') or 'Unknown'}")
+                
+                meta = r.get('metadata', {})
+                # 1. SHOW DENSE VS SPARSE CONTRIBUTION
+                if 'score_breakdown' in meta:
+                    bd = meta['score_breakdown']
+                    print(f"Contribution: Dense({bd['dense_weighted']:.3f}) + Sparse({bd['sparse_weighted']:.3f})")
+                else:
+                    print(f"Source:     {r['source']}")
+
+                print(f"ID:         {r['id']}")
+                print(f"File:       {meta.get('file_path') or meta.get('source_file') or 'Unknown'}")
+                
+                # 2. SHOW GRAPH DB CONTRIBUTION (Expanded Context)
+                if r.get('expanded_context'):
+                    print(f"\n[Graph DB Contribution] Found {len(r['expanded_context'])} related items:")
+                    for ctx in r['expanded_context']:
+                        print(f"   -> {ctx['relation']}: {ctx['name']} ({ctx['type']})")
+
+                # print full content or a larger chunk
+                print(f"Content:") 
+                print(f"{r['content']}") 
+                print(f"\n{'='*60}\n")
     elif args.mode == 'eval':
         try:
             rag.load(args.index_dir)
