@@ -188,6 +188,15 @@ class HybridRetriever:
             # Compute hybrid scores
             for r in retrieval_results:
                 sparse_score = bm25_scores_dict.get(r.id, 0.0)
+                original_dense_score = r.score  # Save original dense score
+                
+               
+                r.metadata['score_breakdown'] = {
+                    'dense_raw': float(original_dense_score),
+                    'dense_weighted': float(self.dense_weight * original_dense_score),
+                    'sparse_raw': float(sparse_score),
+                    'sparse_weighted': float(self.sparse_weight * sparse_score)
+                }
                 r.score = (
                     self.dense_weight * r.score +
                     self.sparse_weight * sparse_score
