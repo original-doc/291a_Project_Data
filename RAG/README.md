@@ -128,8 +128,8 @@ python pipeline.py --mode build --config configs/config.yaml
 ```
 
 This will:
-- Load data from `../final data/` directory
-- Chunk source code using AST parsing
+- Load data from `../data/` directory
+- Chunk source code using AST parsing and recursive parsing for documents and discussions
 - Generate UniXcoder embeddings
 - Build FAISS vector index
 - Build Repository Semantic Graph
