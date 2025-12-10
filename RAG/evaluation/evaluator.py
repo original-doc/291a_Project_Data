@@ -6,6 +6,7 @@ with baseline approaches.
 
 Metrics implemented:
 - Recall@K
+- Precision@K
 - Mean Reciprocal Rank (MRR)
 - Normalized Discounted Cumulative Gain (NDCG)
 - Hit Rate
@@ -62,7 +63,7 @@ class RAGEvaluator:
     def __init__(
         self,
         k_values: List[int] = [1, 3, 5, 10],
-        metrics: List[str] = ['recall', 'mrr', 'ndcg', 'hit_rate']
+        metrics: List[str] = ['recall', 'precision', 'mrr', 'ndcg']
     ):
         self.k_values = k_values
         self.metrics = metrics
