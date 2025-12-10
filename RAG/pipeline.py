@@ -109,8 +109,12 @@ class PyTorchLightningRAG:
             }
         }
     
-    def initialize_components(self):
-        """Initialize all RAG components"""
+    def initialize_components(self, build_mode: bool = False):
+        """Initialize all RAG components
+        
+        Args:
+            build_mode: If True, clears existing collections to ensure clean build
+        """
         logger.info("Initializing RAG components...")
         
         # Initialize embedder
@@ -125,15 +129,16 @@ class PyTorchLightningRAG:
         # Initialize vector store
         from storage import create_vector_store
         
-        # --- Clear old collections to ensure clean build ---
-        try:
-            from qdrant_client import QdrantClient
-            temp_client = QdrantClient("http://localhost:6333")
-            for name in ["pytorch_lightning_code", "pytorch_lightning_documentation", "pytorch_lightning_discussion"]:
-                temp_client.delete_collection(name)
-            logger.info("🗑️  Deleted old collections to ensure clean build.")
-        except Exception as e:
-            logger.warning(f"Could not delete collection (might not exist yet): {e}")
+        # --- Clear old collections only in build mode ---
+        if build_mode:
+            try:
+                from qdrant_client import QdrantClient
+                temp_client = QdrantClient("http://localhost:6333")
+                for name in ["pytorch_lightning_code", "pytorch_lightning_documentation", "pytorch_lightning_discussion"]:
+                    temp_client.delete_collection(name)
+                logger.info("🗑️  Deleted old collections to ensure clean build.")
+            except Exception as e:
+                logger.warning(f"Could not delete collection (might not exist yet): {e}")
         # -------------------------------------------------
 
         self.vector_store = create_vector_store(
@@ -457,7 +462,7 @@ class PyTorchLightningRAG:
     def build(self):
         """Build the complete RAG system"""
         logger.info("Building PyTorch Lightning RAG system...")
-        self.initialize_components()
+        self.initialize_components(build_mode=True)
         self.load_data()
         processed_code, processed_docs, processed_discussions = self.process_chunks()
         self.build_index(processed_code, processed_docs, processed_discussions)

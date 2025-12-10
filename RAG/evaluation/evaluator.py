@@ -27,7 +27,8 @@ class EvaluationQuery:
     """Represents an evaluation query with ground truth"""
     query_id: str
     query_text: str
-    relevant_ids: List[str]  # Ground truth relevant document IDs
+    relevant_ids: List[str]  # Synthetic ground-truth IDs (derived from texts)
+    relevant_texts: List[str]  # Ground-truth passages to compare against
     relevance_scores: Optional[Dict[str, float]] = None  # Optional relevance grades
     metadata: Optional[Dict[str, Any]] = None
 
@@ -36,8 +37,11 @@ class EvaluationQuery:
 class EvaluationResult:
     """Stores evaluation results for a single query"""
     query_id: str
+    retrieved_raw_ids: List[str]
     retrieved_ids: List[str]
+    retrieved_texts: List[str]
     retrieved_scores: List[float]
+    matched_relevant_ids: List[Optional[str]]
     relevant_ids: Set[str]
     metrics: Dict[str, float]
     latency_ms: float
@@ -62,13 +66,21 @@ class RAGEvaluator:
         """
         Load evaluation queries from JSON file.
         
-        Expected format:
+        Expected format (requests/final_requests.json):
         [
             {
-                "query_id": "q1",
-                "query": "How to define a training step?",
-                "relevant": ["doc_123", "doc_456"],
-                "relevance_scores": {"doc_123": 2, "doc_456": 1}  # optional
+                "query": "...",
+                "query_type": "...",
+                "relevant_docs": [
+                    {
+                        "file": "...",
+                        "entry_filename": "...",
+                        "index": 9,
+                        "text": "ground truth passage",
+                        "score": 10
+                    },
+                    ...
+                ]
             },
             ...
         ]
@@ -85,12 +97,26 @@ class RAGEvaluator:
             data = [data]
         
         queries = []
-        for item in data:
+        for idx, item in enumerate(data):
+            relevant_docs = item.get('relevant_docs', item.get('relevant', []))
+            relevant_texts = [doc.get('text', '') for doc in relevant_docs]
+            
+            # Create deterministic IDs from request doc metadata so metrics can
+            # operate on stable identifiers while comparisons are text-based.
+            relevant_ids = []
+            relevance_scores = {}
+            for doc_idx, doc in enumerate(relevant_docs):
+                doc_id = doc.get('id') or f"{doc.get('file', 'unknown')}::{doc.get('entry_filename', 'unknown')}::{doc.get('index', doc_idx)}"
+                relevant_ids.append(str(doc_id))
+                if 'score' in doc:
+                    relevance_scores[str(doc_id)] = doc.get('score', 1.0)
+            
             query = EvaluationQuery(
-                query_id=item.get('query_id', item.get('id', str(len(queries)))),
+                query_id=item.get('query_id', item.get('id', f"q{idx}")),
                 query_text=item.get('query', item.get('question', '')),
-                relevant_ids=item.get('relevant', item.get('relevant_ids', [])),
-                relevance_scores=item.get('relevance_scores', None),
+                relevant_ids=relevant_ids,
+                relevant_texts=relevant_texts,
+                relevance_scores=item.get('relevance_scores', relevance_scores or None),
                 metadata=item.get('metadata', {})
             )
             queries.append(query)
@@ -216,8 +242,11 @@ class RAGEvaluator:
     def evaluate_single(
         self,
         query: EvaluationQuery,
+        retrieved_raw_ids: List[str],
         retrieved_ids: List[str],
+        retrieved_texts: List[str],
         retrieved_scores: List[float],
+        matched_relevant_ids: List[Optional[str]],
         latency_ms: float = 0.0
     ) -> EvaluationResult:
         """
@@ -225,8 +254,11 @@ class RAGEvaluator:
         
         Args:
             query: EvaluationQuery with ground truth
-            retrieved_ids: List of retrieved document IDs
+            retrieved_raw_ids: Original retrieved IDs from the retriever
+            retrieved_ids: Matched ground-truth IDs (placeholders for metrics)
+            retrieved_texts: Retrieved passages
             retrieved_scores: List of retrieval scores
+            matched_relevant_ids: List of matched ground-truth IDs (or None)
             latency_ms: Query latency in milliseconds
             
         Returns:
@@ -255,18 +287,68 @@ class RAGEvaluator:
         
         return EvaluationResult(
             query_id=query.query_id,
+            retrieved_raw_ids=retrieved_raw_ids,
             retrieved_ids=retrieved_ids,
+            retrieved_texts=retrieved_texts,
             retrieved_scores=retrieved_scores,
+            matched_relevant_ids=matched_relevant_ids,
             relevant_ids=relevant,
             metrics=metrics,
             latency_ms=latency_ms
         )
     
+    def _embed_texts(self, embedder, texts: List[str]) -> np.ndarray:
+        """Embed a list of texts using the provided embedder."""
+        if not texts:
+            return np.empty((0, 0))
+        return embedder.embed(texts)
+    
+    @staticmethod
+    def _cosine_sim_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """Compute cosine similarity matrix between two embedding sets."""
+        if a.size == 0 or b.size == 0:
+            return np.zeros((a.shape[0], b.shape[0]))
+        
+        a_norm = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-10)
+        b_norm = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-10)
+        return np.clip(a_norm @ b_norm.T, -1.0, 1.0)
+    
+    def _match_by_embedding(
+        self,
+        gt_ids: List[str],
+        gt_embeddings: np.ndarray,
+        retrieved_embeddings: np.ndarray,
+        sim_threshold: float = 0.3
+    ) -> List[Optional[str]]:
+        """
+        For each retrieved embedding, find the ground-truth passage with the
+        highest cosine similarity. If the best similarity is below threshold,
+        return None for that retrieved item.
+        """
+        if retrieved_embeddings.size == 0 or gt_embeddings.size == 0:
+            return [None] * retrieved_embeddings.shape[0]
+        
+        sim_matrix = self._cosine_sim_matrix(retrieved_embeddings, gt_embeddings)
+        best_idx = sim_matrix.argmax(axis=1)
+        best_sim = sim_matrix.max(axis=1)
+        
+        matches = []
+        for sim, idx in zip(best_sim, best_idx):
+            if sim >= sim_threshold:
+                matches.append(gt_ids[idx])
+            else:
+                matches.append(None)
+        return matches
+    
     def evaluate_retriever(
         self,
         retriever,
         queries: List[EvaluationQuery],
-        top_k: int = 10
+        top_k: int = 10,
+        vector_types: Optional[List[str]] = None,
+        expand_context: bool = True,
+        use_hybrid: bool = True,
+        sim_threshold: float = 0.3
     ) -> Dict[str, Any]:
         """
         Evaluate a retriever on a set of queries.
@@ -275,26 +357,67 @@ class RAGEvaluator:
             retriever: HybridRetriever or RepoCoderRetriever
             queries: List of EvaluationQuery objects
             top_k: Number of results to retrieve
+            vector_types: Types of vectors to search (default: all types)
+            expand_context: Whether to expand context using graph
+            use_hybrid: Whether to use hybrid search (dense + sparse)
+            sim_threshold: Cosine similarity threshold to count a retrieved
+                passage as matching a ground-truth passage
             
         Returns:
             Dictionary with aggregated metrics
         """
+        if vector_types is None:
+            vector_types = ['code', 'documentation', 'discussion']
+        
+        # We need an embedder to embed both ground-truth and retrieved texts.
+        embedder = getattr(retriever, "embedder", None)
+        if embedder is None:
+            raise ValueError("Retriever must expose an 'embedder' attribute for embedding-based evaluation.")
+        
         results = []
         
         for query in queries:
             # Time the retrieval
             start_time = time.time()
-            retrieved = retriever.search(query.query_text, top_k=top_k)
+            retrieved = retriever.search(
+                query.query_text,
+                top_k=top_k,
+                vector_types=vector_types,
+                expand_context=expand_context,
+                use_hybrid=use_hybrid
+            )
             latency_ms = (time.time() - start_time) * 1000
             
             # Extract IDs and scores
-            retrieved_ids = [r.id for r in retrieved]
+            retrieved_raw_ids = [r.id for r in retrieved]
             retrieved_scores = [r.score for r in retrieved]
+            retrieved_texts = [getattr(r, 'content', '') for r in retrieved]
+            
+            # Embed ground-truth and retrieved texts, then match by cosine similarity
+            gt_embeddings = self._embed_texts(embedder, query.relevant_texts)
+            retrieved_embeddings = self._embed_texts(embedder, retrieved_texts)
+            matched_relevant_ids = self._match_by_embedding(
+                query.relevant_ids,
+                gt_embeddings,
+                retrieved_embeddings,
+                sim_threshold=sim_threshold
+            )
+            metric_ids = [
+                match_id if match_id is not None else f"nomatch_{i}"
+                for i, match_id in enumerate(matched_relevant_ids)
+            ]
             
             # Evaluate
             result = self.evaluate_single(
-                query, retrieved_ids, retrieved_scores, latency_ms
+                query,
+                retrieved_raw_ids=retrieved_raw_ids,
+                retrieved_ids=metric_ids,
+                retrieved_texts=retrieved_texts,
+                retrieved_scores=retrieved_scores,
+                matched_relevant_ids=matched_relevant_ids,
+                latency_ms=latency_ms
             )
+            __import__("IPython").embed()
             results.append(result)
         
         # Aggregate metrics
@@ -460,7 +583,11 @@ def run_evaluation(
     retriever,
     query_file: str,
     output_file: Optional[str] = None,
-    k_values: List[int] = [1, 3, 5, 10]
+    k_values: List[int] = [1, 3, 5, 10],
+    top_k: int = 10,
+    vector_types: Optional[List[str]] = None,
+    expand_context: bool = True,
+    use_hybrid: bool = True
 ) -> Dict[str, Any]:
     """
     Convenience function to run evaluation.
@@ -470,6 +597,10 @@ def run_evaluation(
         query_file: Path to evaluation queries JSON
         output_file: Optional path to save results
         k_values: K values for metrics
+        top_k: Number of results to retrieve per query
+        vector_types: Types of vectors to search (default: all types)
+        expand_context: Whether to expand context using graph
+        use_hybrid: Whether to use hybrid search (dense + sparse)
         
     Returns:
         Evaluation results dictionary
@@ -477,7 +608,14 @@ def run_evaluation(
     evaluator = RAGEvaluator(k_values=k_values)
     queries = evaluator.load_queries(query_file)
     
-    results = evaluator.evaluate_retriever(retriever, queries)
+    results = evaluator.evaluate_retriever(
+        retriever,
+        queries,
+        top_k=top_k,
+        vector_types=vector_types,
+        expand_context=expand_context,
+        use_hybrid=use_hybrid
+    )
     
     if output_file:
         evaluator.save_results(results, output_file)
