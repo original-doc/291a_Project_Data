@@ -32,3 +32,10 @@ tqdm>=4.65.0
 pytest>=7.0.0
 black>=23.0.0
 flake8>=6.0.0
+
+tree-sitter>=0.25.2
+tree-sitter-python>=0.25.0
+tree-sitter-languages>=1.10.2
+
+google-generativeai>=0.8.5
+openai>=2.9.0
