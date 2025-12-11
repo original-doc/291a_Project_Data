@@ -22,7 +22,7 @@ import sys
 import uuid  # <--- ADDED THIS
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-
+from LLM import LLMGenerator
 import yaml
 import numpy as np
 
@@ -59,6 +59,7 @@ class PyTorchLightningRAG:
         self.vector_store = None
         self.graph_db = None
         self.retriever = None
+        self.llm_generator = None
         
         # Data
         self.code_chunks = []
@@ -106,6 +107,11 @@ class PyTorchLightningRAG:
                     'sparse_weight': 0.3
                 },
                 'top_k': 10
+            },
+            'llm': {
+                'provider': 'google',
+                'model_name': 'gemini-2.5-flash',
+                'api_key_env_var': 'GEMINI_API_KEY'
             }
         }
     
@@ -163,6 +169,9 @@ class PyTorchLightningRAG:
             sparse_weight=self.config['retrieval']['hybrid'].get('sparse_weight', 0.3)
         )
         logger.info("Retriever initialized")
+
+        self.llm_generator = LLMGenerator(self.config)
+        logger.info("LLM Generator initialized")
     
     def load_data(self):
         """Load all data from the data directory"""
@@ -460,6 +469,12 @@ class PyTorchLightningRAG:
             for r in results
         ]
     
+    def generate_answer(self, query_text: str, retrieval_results: List[Dict[str, Any]]) -> str:
+        """Generate an answer using the LLM based on retrieval results."""
+        if not self.llm_generator:
+            return "LLM Generator not initialized."
+        return self.llm_generator.generate_answer(query_text, retrieval_results)
+    
     def build(self):
         """Build the complete RAG system"""
         logger.info("Building PyTorch Lightning RAG system...")
@@ -546,6 +561,17 @@ def main():
                 print(f"Content:") 
                 print(f"{r['content']}") 
                 print(f"\n{'='*60}\n")
+
+            # 2. Generate Answer
+            print(f"\n{'='*60}")
+            print("Generating Answer with LLM...")
+            print(f"{'='*60}\n")
+            
+            # --- CALL GENERATION ---
+            answer = rag.generate_answer(query, results)
+            print(answer)
+            print(f"\n{'='*60}\n")
+
     elif args.mode == 'eval':
         try:
             rag.load(args.index_dir)
