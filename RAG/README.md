@@ -13,47 +13,6 @@ This RAG system implements state-of-the-art techniques from code retrieval resea
 | **Storage** | Graph DB (NetworkX) + Vector Store (FAISS) | Hybrid storage for structure-aware retrieval |
 | **Retrieval** | RepoCoder | Iterative retrieval with draft generation |
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PyTorch Lightning RAG                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
-│  │  Source Code │    │Documentation │    │  Discussions │      │
-│  │   (JSON)     │    │   (JSON)     │    │    (JSON)    │      │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘      │
-│         │                   │                   │               │
-│         ▼                   ▼                   ▼               │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
-│  │ AST Chunker  │    │  Recursive   │    │  Discussion  │      │
-│  │              │    │   Chunker    │    │   Chunker    │      │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘      │
-│         │                   │                   │               │
-│         └───────────────────┼───────────────────┘               │
-│                             ▼                                   │
-│                   ┌──────────────────┐                          │
-│                   │   UniXcoder      │                          │
-│                   │   Embeddings     │                          │
-│                   └────────┬─────────┘                          │
-│                            │                                    │
-│         ┌──────────────────┼──────────────────┐                │
-│         ▼                  ▼                  ▼                │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ Vector Store │  │  Graph DB    │  │    BM25      │         │
-│  │   (FAISS)    │  │ (NetworkX)   │  │   Index      │         │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘         │
-│         │                 │                 │                  │
-│         └─────────────────┼─────────────────┘                  │
-│                           ▼                                    │
-│                 ┌──────────────────┐                           │
-│                 │ Hybrid Retriever │                           │
-│                 │   (RepoCoder)    │                           │
-│                 └──────────────────┘                           │
-│                                                                │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ## Installation
 
