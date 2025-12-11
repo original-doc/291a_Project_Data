@@ -10,7 +10,7 @@ This RAG system implements state-of-the-art techniques from code retrieval resea
 |-----------|------------|-------------|
 | **Embedding** | UniXcoder | Cross-modal code-text alignment |
 | **Chunking** | AST/Functional | Syntax-aware code chunking |
-| **Storage** | Graph DB (NetworkX) + Vector Store (FAISS) | Hybrid storage for structure-aware retrieval |
+| **Storage** | Graph DB (NetworkX) + Vector Store (FAISS / Qdrant) | Hybrid storage for structure-aware retrieval |
 | **Retrieval** | RepoCoder | Iterative retrieval with draft generation |
 
 
