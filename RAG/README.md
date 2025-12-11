@@ -123,22 +123,6 @@ python pipeline.py --mode eval \
     --output evaluation_results.json
 ```
 
-## Baseline Comparison
-
-Compare the RAG system against baselines:
-
-```bash
-python run_baseline_comparison.py \
-    --query-file "../final data/new_requests.json" \
-    --output comparison_results.json
-```
-
-This compares:
-1. **BM25** - Traditional sparse retrieval
-2. **Dense** - UniXcoder embeddings without graph
-3. **Hybrid (No Graph)** - Dense + BM25 without graph expansion
-4. **Full RAG** - Complete system with graph expansion
-
 
 
 ## Configuration
