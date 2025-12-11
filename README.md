@@ -3,7 +3,7 @@ temp install guide
 
 ```
 
-pip install qdrant-client==1.5.4 rank_bm25 numpy 
+pip install qdrant-client==1.15.1 rank_bm25 numpy 
 
 # install torch by official guide
 ```
